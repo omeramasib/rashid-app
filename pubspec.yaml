@@ -1,0 +1,55 @@
+name: rashed_app
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+dependencies:
+  cupertino_icons: ^1.0.8
+  flutter:
+    sdk: flutter
+  bloc: ^8.1.4
+  flutter_bloc: ^8.1.6
+  flutter_localizations:
+    sdk: flutter
+  flutter_svg: ^2.0.16
+  intl: ^0.19.0
+  equatable: ^2.0.7
+  get_it: ^8.0.3
+  dio: ^5.7.0
+  flutter_secure_storage: ^9.2.2
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+  intl_utils: ^2.8.7
+  build_runner: ^2.4.14
+  flutter_test:
+    sdk: flutter
+
+
+flutter:
+  generate: true
+  uses-material-design: true
+  assets:
+    - assets/images/png/
+    - assets/images/svg/
+    - assets/animations/
+    - assets/lang/en.json
+    - assets/lang/ar.json
+
+  fonts:
+    - family: Almarai
+      fonts:
+        - asset: assets/fonts/Almarai-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Almarai-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Almarai-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Almarai-Regular.ttf
+          weight: 400
+
+flutter_intl:
+  enabled: true

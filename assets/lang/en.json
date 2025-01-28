@@ -1,0 +1,12 @@
+{
+    "login": "Login",
+    "login_des": "Sign in to be your personal assistant on your journey!",
+    "email": "Email",
+    "password": "Password",
+    "forgot_password": "Forgot password ?",
+    "dont_have_account": "Don't have an account ?",
+    "sign_up": "Sign up",
+    "or": "Or",
+    "login_with_linkedin": "Login with your LinkedIn account",
+    "full_name": "Full Name"
+}
