@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:rashed_app/Logic/cubits/auth/login/login_cubit.dart';
+import 'package:rashed_app/Logic/cubits/auth/register/cubit/register_cubit.dart';
 import 'package:rashed_app/Presentation/utils/colors.dart';
 import 'package:rashed_app/Presentation/utils/fonts.dart';
 import 'package:rashed_app/Presentation/utils/styles.dart';
@@ -20,7 +20,7 @@ class RegisterScreen extends StatefulWidget {
   static Route route(RouteSettings routeSettings) {
     return CupertinoPageRoute(
       builder: (_) => BlocProvider(
-        create: (_) => LoginCubit(),
+        create: (_) => RegisterCubit(),
         child: const RegisterScreen(),
       ),
       settings: routeSettings,
@@ -33,29 +33,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height;
     final width = MediaQuery.of(context).size.width;
-    return BlocProvider(
-      create: (context) => LoginCubit(),
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            AppLocalizations.of(context)!.translate("login"),
-            selectionColor: ColorsManager.primaryColor,
-            style: getBoldStyle(
-              color: ColorsManager.mainColor,
-              fontSize: FontSizeManager.s20,
-            ),
-          ),
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(
-              Icons.arrow_back_ios,
-              color: ColorsManager.blackColor,
-            ),
-            onPressed: () {},
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          AppLocalizations.of(context)!.translate("register"),
+          selectionColor: ColorsManager.primaryColor,
+          style: getBoldStyle(
+            color: ColorsManager.mainColor,
+            fontSize: FontSizeManager.s20,
           ),
         ),
-        body: SingleChildScrollView(
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios,
+            color: ColorsManager.blackColor,
+          ),
+          onPressed: () {},
+        ),
+      ),
+      body: BlocProvider(
+        create: (context) => RegisterCubit(),
+        child: SingleChildScrollView(
           child: Column(
+            spacing: height * 0.01,
             children: [
               Padding(
                 padding: const EdgeInsets.all(10.0),
@@ -107,13 +108,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               ),
-              SizedBox(
-                height: height * 0.01,
-              ),
               Padding(
                 padding: const EdgeInsets.all(10.0),
                 child: Container(
-                  height: height * 0.6,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: ColorsManager.bodyColor,
@@ -123,11 +120,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(
+                          top: 20,
                           left: 20,
                           right: 20,
                         ),
                         child: SizedBox(
-                          height: height * 0.08,
+                          height: height * 0.09,
                           width: double.infinity,
                           child: TextFormField(
                             textInputAction: TextInputAction.next,
@@ -155,7 +153,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       Padding(
                         padding: const EdgeInsets.only(
-                          top: 20,
                           left: 20,
                           right: 20,
                         ),
@@ -186,19 +183,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                       ),
-                      SizedBox(
-                        height: height * 0.01,
-                      ),
                       Padding(
                         padding: const EdgeInsets.only(
-                          top: 5,
+                          top: 10,
                           left: 20,
                           right: 20,
                         ),
                         child: SizedBox(
                           height: height * 0.08,
                           width: double.infinity,
-                          child: BlocBuilder<LoginCubit, LoginState>(
+                          child: BlocBuilder<RegisterCubit, RegisterState>(
                             builder: (context, state) {
                               return TextFormField(
                                 textInputAction: TextInputAction.next,
@@ -213,14 +207,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   suffixIcon: IconButton(
                                     icon: Icon(
                                       context
-                                              .read<LoginCubit>()
+                                              .read<RegisterCubit>()
                                               .isPasswordVisible
                                           ? Icons.visibility
                                           : Icons.visibility_off,
-                                      color: ColorsManager.mainColor,
+                                      color: ColorsManager.defaultGreyColor,
                                     ),
                                     onPressed: () {
-                                      context.read<LoginCubit>().viewPassword();
+                                      context
+                                          .read<RegisterCubit>()
+                                          .viewPassword();
                                     },
                                   ),
                                   border: OutlineInputBorder(
@@ -241,36 +237,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                       ),
-                      Row(
-                        children: [
-                          TextButton(
-                              onPressed: () {},
-                              child: Text(
-                                AppLocalizations.of(context)!
-                                    .translate("forgot_password"),
-                                style: getRegularStyle(
-                                  color: ColorsManager.blueColor,
-                                  fontSize: FontSizeManager.s16,
-                                ),
-                              )),
-                        ],
-                      ),
                       SizedBox(
-                        height: height * 0.01,
+                        height: height * 0.02,
                       ),
                       ButtonsManager.primaryButton(
-                          text:
-                              AppLocalizations.of(context)!.translate("login"),
-                          onPressed: () {},
-                          context: context),
+                        text: AppLocalizations.of(context)!
+                            .translate("sign_up"),
+                        onPressed: () {},
+                        context: context,
+                      ),
                       Padding(
                         padding: EdgeInsets.only(
-                            top: height * 0.02, left: 20, right: 20),
+                          top: height * 0.02,
+                          left: 20,
+                          right: 20,
+                        ),
                         child: Row(
                           children: [
                             Text(
                               AppLocalizations.of(context)!
-                                  .translate("dont_have_account"),
+                                  .translate("already_have_an_account"),
                               style: getRegularStyle(
                                   color: ColorsManager.defaultGreyColor),
                             ),
@@ -278,7 +264,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               onPressed: () {},
                               child: Text(
                                 AppLocalizations.of(context)!
-                                    .translate("sign_up"),
+                                    .translate("login"),
                                 style: getRegularStyle(
                                   color: ColorsManager.blueColor,
                                   fontSize: FontSizeManager.s16,
@@ -287,9 +273,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ],
                         ),
-                      ),
-                      SizedBox(
-                        height: height * 0.01,
                       ),
                       Row(
                         children: [
@@ -336,7 +319,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               width: width * 0.05,
                             ),
                             Image.asset(
-                             ImageManages.linkedinImage,
+                              ImageManages.linkedinImage,
                             ),
                             SizedBox(
                               width: width * 0.03,
@@ -351,6 +334,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ],
                         ),
+                      ),
+                      SizedBox(
+                        height: height * 0.03,
                       )
                     ],
                   ),

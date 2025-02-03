@@ -5,6 +5,7 @@ import 'package:rashed_app/Logic/cubits/auth/login/login_cubit.dart';
 import 'package:rashed_app/Presentation/utils/colors.dart';
 import 'package:rashed_app/Presentation/utils/fonts.dart';
 import 'package:rashed_app/Presentation/utils/styles.dart';
+import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -113,7 +114,6 @@ class _LoginScreenState extends State<LoginScreen> {
               Padding(
                 padding: const EdgeInsets.all(10.0),
                 child: Container(
-                  height: height * 0.6,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: ColorsManager.bodyColor,
@@ -185,7 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                               .isPasswordVisible
                                           ? Icons.visibility
                                           : Icons.visibility_off,
-                                      color: ColorsManager.mainColor,
+                                      color: ColorsManager.defaultGreyColor,
                                     ),
                                     onPressed: () {
                                       context.read<LoginCubit>().viewPassword();
@@ -243,7 +243,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: ColorsManager.defaultGreyColor),
                             ),
                             TextButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.pushReplacementNamed(context, RoutesName.register);
+                              },
                               child: Text(
                                 AppLocalizations.of(context)!
                                     .translate("sign_up"),
@@ -319,7 +321,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ],
                         ),
-                      )
+                      ),
+                      SizedBox(
+                        height: height * 0.03,
+                      ),
                     ],
                   ),
                 ),

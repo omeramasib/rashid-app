@@ -5,8 +5,10 @@
     "password": "Password",
     "forgot_password": "Forgot password ?",
     "dont_have_account": "Don't have an account ?",
+    "register": "Register",
     "sign_up": "Sign up",
     "or": "Or",
     "login_with_linkedin": "Login with your LinkedIn account",
-    "full_name": "Full Name"
+    "full_name": "Full Name",
+    "already_have_an_account": "Already have an account ?"
 }

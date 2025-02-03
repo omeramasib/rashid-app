@@ -39,15 +39,3 @@ class ViewPasswordState extends LoginState {
   @override
   List<Object> get props => [enabled];
 }
-// sealed class LoginState extends Equatable {
-//   const LoginState();
-
-//   @override
-//   List<Object> get props => [];
-// }
-
-// final class LoginInitial extends LoginState {}
-
-
-// import 'package:equatable/equatable.dart';
-// part of 'login_cubit.dart';

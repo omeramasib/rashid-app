@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:rashed_app/app/app_routes.dart';
+import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
 
 import 'Presentation/Auth/login_screen.dart';
@@ -38,8 +40,9 @@ class MyApp extends StatelessWidget {
         }
         return supportedLocales.first;
       } ,
+      initialRoute: RoutesName.login,
+      onGenerateRoute: Routes.onGenerateRouted,
       locale: const Locale('ar'),
-      home: const LoginScreen(),
     );
   }
 }
