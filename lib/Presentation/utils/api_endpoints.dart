@@ -1,5 +1,5 @@
 class ApiEndpoints {
-  static String baseUrl = "https://develop.fnrcoerp.com/";
+  static String baseUrl = "http://127.0.0.1:8000/";
   static String secondUrl = "${baseUrl}api/";
   String loginUrl = "$baseUrl/auth/login";
   String registerUrl = "$baseUrl/auth/signup";

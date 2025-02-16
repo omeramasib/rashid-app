@@ -7,8 +7,10 @@ import 'package:rashed_app/app_localizations.dart';
 
 import 'Data/Repositories/Auth/login_repository.dart';
 import 'Logic/cubits/auth/login/login_cubit.dart';
+import 'Presentation/utils/injection_container.dart';
 
 void main() {
+  setUpLocator(); // Initialize GetIt and register dependencies
   runApp(const MyApp());
 }
 
