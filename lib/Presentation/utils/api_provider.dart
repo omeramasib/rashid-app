@@ -60,8 +60,7 @@ class ApiProvider {
   }) async {
     try {
       final Dio dio = Dio();
-      final FormData formData =
-          FormData.fromMap(body, ListFormat.multiCompatible);
+      final formatedBody = json.encode(body);
       if (kDebugMode) {
         log("API Called POST: $url");
         log("Body Params: $body");
@@ -69,10 +68,16 @@ class ApiProvider {
 
       final response = await dio.post(
         url,
-        data: formData,
+        data: formatedBody,
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
         onSendProgress: onSendProgress,
+        options: Options(
+          headers: {
+            HttpHeaders.contentTypeHeader: "application/json",
+            HttpHeaders.acceptHeader: "application/json",
+          },
+        ),
       );
 
       if (kDebugMode) {
@@ -95,6 +100,63 @@ class ApiProvider {
         e.error is SocketException
             ? ErrorMessageKeysAndCode.noInternetCode
             : ErrorMessageKeysAndCode.invalidLogInCredentialsKey,
+      );
+    } on ApiException catch (e) {
+      throw ApiException(e.errorMessage);
+    } catch (e) {
+      throw ApiException(ErrorMessageKeysAndCode.defaultErrorMessageKey);
+    }
+  }
+
+    Future<Map<String, dynamic>> register({
+    required Map<String, dynamic> body,
+    required String url,
+    CancelToken? cancelToken,
+    Function(int, int)? onSendProgress,
+    Function(int, int)? onReceiveProgress,
+  }) async {
+    try {
+      final Dio dio = Dio();
+      final formatedBody = json.encode(body);
+      if (kDebugMode) {
+        log("API Called POST: $url");
+        log("Body Params: $body");
+      }
+
+      final response = await dio.post(
+        url,
+        data: formatedBody,
+        cancelToken: cancelToken,
+        onReceiveProgress: onReceiveProgress,
+        onSendProgress: onSendProgress,
+        options: Options(
+          headers: {
+            HttpHeaders.contentTypeHeader: "application/json",
+            HttpHeaders.acceptHeader: "application/json",
+          },
+        ),
+      );
+
+      if (kDebugMode) {
+        log("Response: ${response.data}");
+      }
+      return Map.from(response.data);
+    } on DioException catch (e) {
+      if (e.response!.statusMessage!.contains('Timeout')) {
+        throw ApiException(ErrorMessageKeysAndCode.timeOut);
+      }
+      if (e.response?.statusCode == 503 || e.response?.statusCode == 500) {
+        throw ApiException(ErrorMessageKeysAndCode.internetServerErrorKey);
+      }
+
+      if (e.response?.statusCode == 400) {
+        throw ApiException(ErrorMessageKeysAndCode.userAlreadyExist);
+      }
+
+      throw ApiException(
+        e.error is SocketException
+            ? ErrorMessageKeysAndCode.noInternetCode
+            : ErrorMessageKeysAndCode.userAlreadyExist,
       );
     } on ApiException catch (e) {
       throw ApiException(e.errorMessage);

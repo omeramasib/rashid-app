@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:rashed_app/Logic/cubits/auth/register/cubit/register_cubit.dart';
 import 'package:rashed_app/Presentation/utils/colors.dart';
@@ -8,8 +9,11 @@ import 'package:rashed_app/Presentation/utils/styles.dart';
 import 'package:rashed_app/app_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../Data/repositories/Auth/register_repository.dart';
 import '../utils/buttons.dart';
+import '../utils/custom_snackbars.dart';
 import '../utils/images.dart';
+import '../utils/validations.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -20,7 +24,9 @@ class RegisterScreen extends StatefulWidget {
   static Route route(RouteSettings routeSettings) {
     return CupertinoPageRoute(
       builder: (_) => BlocProvider(
-        create: (_) => RegisterCubit(),
+        create: (_) => RegisterCubit(
+          RegisterRepository(),
+        ),
         child: const RegisterScreen(),
       ),
       settings: routeSettings,
@@ -29,6 +35,43 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final TextEditingController _nameTextEditingController =
+      TextEditingController();
+
+  final TextEditingController _emailTextEditingController =
+      TextEditingController();
+
+  final TextEditingController _passwordTextEditingController =
+      TextEditingController();
+
+  final GlobalKey<FormState> registerFormKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _emailTextEditingController.dispose();
+    _passwordTextEditingController.dispose();
+    super.dispose();
+  }
+
+  void login() {
+    var isValid = registerFormKey.currentState!.validate();
+    if (!isValid) {
+      return;
+    }
+
+    registerFormKey.currentState!.save();
+    context.read<RegisterCubit>().singup(
+          name: _nameTextEditingController.text.trim(),
+          email: _emailTextEditingController.text.trim(),
+          password: _passwordTextEditingController.text.trim(),
+        );
+  }
+
+  final storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+  );
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height;
@@ -52,9 +95,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           onPressed: () {},
         ),
       ),
-      body: BlocProvider(
-        create: (context) => RegisterCubit(),
-        child: SingleChildScrollView(
+      body: SingleChildScrollView(
+        child: Form(
+          key: registerFormKey,
           child: Column(
             spacing: height * 0.01,
             children: [
@@ -129,7 +172,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           width: double.infinity,
                           child: TextFormField(
                             textInputAction: TextInputAction.next,
-                            keyboardType: TextInputType.emailAddress,
+                            keyboardType: TextInputType.text,
+                            controller: _nameTextEditingController,
+                            validator: (value) => Validations.textValidation(
+                              value!,
+                              context,
+                            ),
                             decoration: InputDecoration(
                               fillColor: ColorsManager.whiteColor,
                               filled: true,
@@ -162,6 +210,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: TextFormField(
                             textInputAction: TextInputAction.next,
                             keyboardType: TextInputType.emailAddress,
+                            controller: _emailTextEditingController,
+                            validator: (value) =>
+                                  Validations.validateEmail(
+                                value!,
+                                context,
+                              ),
                             decoration: InputDecoration(
                               fillColor: ColorsManager.whiteColor,
                               filled: true,
@@ -196,9 +250,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             builder: (context, state) {
                               return TextFormField(
                                 textInputAction: TextInputAction.next,
-                                keyboardType: TextInputType.emailAddress,
+                                keyboardType: TextInputType.text,
                                 obscureText: !(state is ViewPasswordState &&
                                     state.enabled),
+                                controller: _passwordTextEditingController,
+                                validator: (value) =>
+                                    Validations.validatePassword(
+                                  value!,
+                                  context,
+                                ),
                                 decoration: InputDecoration(
                                   fillColor: ColorsManager.whiteColor,
                                   filled: true,
@@ -240,12 +300,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       SizedBox(
                         height: height * 0.02,
                       ),
-                      ButtonsManager.primaryButton(
-                        text: AppLocalizations.of(context)!
-                            .translate("sign_up"),
-                        onPressed: () {},
-                        context: context,
+
+                      BlocConsumer<RegisterCubit, RegisterState>(
+                        listener: (context, state) {
+                          if (state is RegisterSuccess) {
+                            CustomSnackBars.sucssesSnackBar(
+                              context: context,
+                              message: state.message,
+                            );
+                            // Navigator.pushReplacementNamed(
+                            //   context,
+                            //   RoutesName.homeScreen,
+                            // );
+                          } else if (state is RegisterFailure) {
+                            CustomSnackBars.errorSnackBar(
+                              context: context,
+                              message: state.errorMessage,
+                            );
+                          }
+                        },
+                        builder: (context, state) {
+                          if (state is RegisterOnProgress) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                color: ColorsManager.mainColor,
+                              ),
+                            );
+                          }
+
+                          return ButtonsManager.primaryButton(
+                            text: AppLocalizations.of(context)!
+                                .translate("sign_up"),
+                            context: context,
+                            onPressed: login,
+                          );
+                        },
                       ),
+
+                      // ButtonsManager.primaryButton(
+                      //   text: AppLocalizations.of(context)!
+                      //       .translate("sign_up"),
+                      //   onPressed: () {},
+                      //   context: context,
+                      // ),
+
                       Padding(
                         padding: EdgeInsets.only(
                           top: height * 0.02,

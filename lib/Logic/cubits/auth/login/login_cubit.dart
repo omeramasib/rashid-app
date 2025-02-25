@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -29,8 +31,8 @@ class LoginCubit extends Cubit<LoginState> {
         email: email,
         password: password,
       );
-      if (result['status'] == "success") {
-        emit(LoginSuccess(message: result['message'], token: result['token']));
+      if (result['status'] == "sucsses") {
+        emit(LoginSuccess(message: "Login Sucssesfully", token: result['token']));
         await storage.write(key: 'token', value: result['token']);
         await storage.write(key: 'email', value: email);
         await storage.write(key: 'password', value: password);
@@ -87,7 +89,6 @@ class LoginCubit extends Cubit<LoginState> {
   //     }
   //   } else {}
   // }
-
   void viewPassword() {
     isPasswordVisible = !isPasswordVisible;
     emit(ViewPasswordState(enabled: isPasswordVisible));

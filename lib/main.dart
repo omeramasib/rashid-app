@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:rashed_app/Data/repositories/Auth/register_repository.dart';
+import 'package:rashed_app/Logic/cubits/auth/register/cubit/register_cubit.dart';
 import 'package:rashed_app/app/app_routes.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
@@ -25,9 +27,11 @@ class MyApp extends StatelessWidget {
             LoginRepository(),
           ),
         ),
-        // BlocProvider(
-        //   create: (context) => RegisterCubit(),
-        // ),
+        BlocProvider(
+          create: (context) => RegisterCubit(
+            RegisterRepository(),
+          ),
+        ),
       ],
       child: MaterialApp(
         title: 'Rashed App',

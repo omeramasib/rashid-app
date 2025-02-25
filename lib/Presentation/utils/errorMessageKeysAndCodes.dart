@@ -4,6 +4,7 @@ class ErrorMessageKeysAndCode {
   static const String noInternetKey = "noInternet";
   static const String internetServerErrorKey = "internet Server Error";
   static const String invalidLogInCredentialsKey = "invalid LogIn Credentials";
+  static const String userAlreadyExist = "Sorry This User Already Exist";
   static const String otpCodeInvalidOrExpired = "OTP Code is Invalid or Expired";
   static const String invalidFileNo = "invalid File No";
   static const String invalidData = "invalid Data";

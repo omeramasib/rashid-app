@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -11,6 +13,7 @@ import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../utils/buttons.dart';
+import '../utils/custom_snackbars.dart';
 import '../utils/images.dart';
 import '../utils/validations.dart';
 
@@ -60,8 +63,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!isValid) {
       return;
     }
-    loginFormKey.currentState!.save();
 
+    loginFormKey.currentState!.save();
     context.read<LoginCubit>().login(
           email: _emailTextEditingController.text.trim(),
           password: _passwordTextEditingController.text.trim(),
@@ -218,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     state.enabled),
                                 controller: _passwordTextEditingController,
                                 validator: (value) =>
-                                  Validations.validatePassword(
+                                    Validations.validatePassword(
                                   value!,
                                   context,
                                 ),
@@ -261,31 +264,63 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         children: [
                           TextButton(
-                              onPressed: () {},
-                              child: Text(
-                                AppLocalizations.of(context)!
-                                    .translate("forgot_password"),
-                                style: getRegularStyle(
-                                  color: ColorsManager.blueColor,
-                                  fontSize: FontSizeManager.s16,
-                                ),
-                              )),
+                            onPressed: () {},
+                            child: Text(
+                              AppLocalizations.of(context)!
+                                  .translate("forgot_password"),
+                              style: getRegularStyle(
+                                color: ColorsManager.blueColor,
+                                fontSize: FontSizeManager.s16,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       SizedBox(
                         height: height * 0.01,
                       ),
-                      ButtonsManager.primaryButton(
-                          text:
-                          AppLocalizations.of(context)!.translate("login"),
-                          onPressed: () {
-                            login();
-                          },
-                          context: context,
-                          ),
+                      BlocConsumer<LoginCubit, LoginState>(
+                        listener: (context, state) {
+                          if (state is LoginSuccess) {
+                            CustomSnackBars.sucssesSnackBar(
+                              context: context,
+                              message: state.message,
+                            );
+                            // Navigator.pushReplacementNamed(
+                            //   context,
+                            //   RoutesName.homeScreen,
+                            // );
+                          } else if (state is LoginFailure) {
+                            CustomSnackBars.errorSnackBar(
+                              context: context,
+                              message: state.errorMessage,
+                            );
+                          }
+                        },
+                        builder: (context, state) {
+                          if (state is LoginOnProgress) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                color: ColorsManager.mainColor,
+                              ),
+                            );
+                          }
+
+                          return ButtonsManager.primaryButton(
+                            text: AppLocalizations.of(context)!
+                                .translate("login"),
+                            context: context,
+                            onPressed: login,
+                          );
+
+                        },
+                      ),
                       Padding(
                         padding: EdgeInsets.only(
-                            top: height * 0.02, left: 20, right: 20),
+                            top: height * 0.02,
+                            left: 20,
+                            right: 20,
+                              ),
                         child: Row(
                           children: [
                             Text(
@@ -296,7 +331,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             TextButton(
                               onPressed: () {
-                                Navigator.pushReplacementNamed(
+                                Navigator.pushNamed(
                                     context, RoutesName.register);
                               },
                               child: Text(
