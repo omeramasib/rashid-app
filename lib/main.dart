@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:rashed_app/Data/repositories/Auth/register_repository.dart';
-import 'package:rashed_app/Logic/cubits/auth/register/cubit/register_cubit.dart';
 import 'package:rashed_app/app/app_routes.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
+import 'package:rashed_app/core/di/injection_container.dart' as di;
 
-import 'Data/Repositories/Auth/login_repository.dart';
-import 'Logic/cubits/auth/login/login_cubit.dart';
-import 'Presentation/utils/injection_container.dart';
+import 'features/auth/presentation/cubit/login/login_cubit.dart';
+import 'features/auth/presentation/cubit/register/register_cubit.dart';
 
-void main() {
-  setUpLocator(); // Initialize GetIt and register dependencies
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await di.init(); // Initialize Dependency Injection
   runApp(const MyApp());
 }
 
@@ -23,14 +22,10 @@ class MyApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (context) => LoginCubit(
-            LoginRepository(),
-          ),
+          create: (context) => di.sl<LoginCubit>(),
         ),
         BlocProvider(
-          create: (context) => RegisterCubit(
-            RegisterRepository(),
-          ),
+          create: (context) => di.sl<RegisterCubit>(),
         ),
       ],
       child: MaterialApp(

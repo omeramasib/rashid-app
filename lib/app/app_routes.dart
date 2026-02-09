@@ -1,10 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:rashed_app/Presentation/Auth/register_screen.dart';
 import 'package:rashed_app/app/routes_name.dart';
 
-import '../Presentation/Auth/login_screen.dart';
+import '../features/auth/presentation/screens/login_screen.dart';
+import '../features/auth/presentation/screens/register_screen.dart';
 
 class Routes {
   static String currentRoute = RoutesName.splash;
@@ -20,14 +20,20 @@ class Routes {
 
       case RoutesName.login:
         {
-          return LoginScreen.route(routeSettings);
+          return CupertinoPageRoute(
+            builder: (_) => const LoginScreen(),
+            settings: routeSettings,
+          );
         }
 
       case RoutesName.register:
         {
-          return RegisterScreen.route(routeSettings);
+          return CupertinoPageRoute(
+            builder: (_) => const RegisterScreen(),
+            settings: routeSettings,
+          );
         }
-        
+
       default:
         {
           return CupertinoPageRoute(builder: (context) => const Scaffold());
