@@ -1,13 +1,27 @@
 import 'package:equatable/equatable.dart';
 
+/// User entity representing authenticated user data.
+/// 
+/// Different auth endpoints return different fields:
+/// - Login (email/LinkedIn): returns token + user info
+/// - Register (email): may return only user_id and message
+/// - Register (LinkedIn): may return token + user info
 class User extends Equatable {
-  final String token;
-  // Add other user properties here as needed, based on the API response.
-  // For now, based on the current login response, we primarily get a token.
-  // We can expand this model as we inspect the full API response.
+  final String? id;
+  final String? name;
+  final String? email;
+  final String? token;
 
-  const User({required this.token});
+  const User({
+    this.id,
+    this.name,
+    this.email,
+    this.token,
+  });
+
+  /// Check if user has a valid token for authenticated requests
+  bool get hasToken => token != null && token!.isNotEmpty;
 
   @override
-  List<Object?> get props => [token];
+  List<Object?> get props => [id, name, email, token];
 }

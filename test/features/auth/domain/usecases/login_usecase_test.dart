@@ -9,48 +9,97 @@ import 'package:rashed_app/features/auth/domain/usecases/login_usecase.dart';
 class MockAuthRepository extends Mock implements AuthRepository {}
 
 void main() {
-  late LoginUseCase usecase;
+  late LoginWithEmailUseCase loginWithEmailUseCase;
+  late LoginWithLinkedInUseCase loginWithLinkedInUseCase;
   late MockAuthRepository mockAuthRepository;
 
   setUp(() {
     mockAuthRepository = MockAuthRepository();
-    usecase = LoginUseCase(mockAuthRepository);
+    loginWithEmailUseCase = LoginWithEmailUseCase(mockAuthRepository);
+    loginWithLinkedInUseCase = LoginWithLinkedInUseCase(mockAuthRepository);
   });
 
   const tEmail = 'test@test.com';
   const tPassword = 'password';
-  const tUser = User(token: 'test_token');
-
-  test(
-    'should get user from the repository when login is successful',
-    () async {
-      // arrange
-      when(() => mockAuthRepository.login(any(), any()))
-          .thenAnswer((_) async => const Right(tUser));
-      // act
-      final result =
-          await usecase(const LoginParams(email: tEmail, password: tPassword));
-      // assert
-      expect(result, const Right(tUser));
-      verify(() => mockAuthRepository.login(tEmail, tPassword));
-      verifyNoMoreInteractions(mockAuthRepository);
-    },
+  const tLinkedInToken = 'linkedin_access_token';
+  const tUser = User(
+    id: 'test_id',
+    name: 'Test User',
+    email: 'test@test.com',
+    token: 'test_token',
   );
 
-  test(
-    'should return a Failure from the repository when login fails',
-    () async {
-      // arrange
-      const tFailure = ServerFailure('Server Failure');
-      when(() => mockAuthRepository.login(any(), any()))
-          .thenAnswer((_) async => const Left(tFailure));
-      // act
-      final result =
-          await usecase(const LoginParams(email: tEmail, password: tPassword));
-      // assert
-      expect(result, const Left(tFailure));
-      verify(() => mockAuthRepository.login(tEmail, tPassword));
-      verifyNoMoreInteractions(mockAuthRepository);
-    },
-  );
+  group('LoginWithEmailUseCase', () {
+    test(
+      'should get user from the repository when email login is successful',
+      () async {
+        // arrange
+        when(() => mockAuthRepository.loginWithEmail(any(), any()))
+            .thenAnswer((_) async => const Right(tUser));
+        // act
+        final result = await loginWithEmailUseCase(
+          const LoginWithEmailParams(email: tEmail, password: tPassword),
+        );
+        // assert
+        expect(result, const Right(tUser));
+        verify(() => mockAuthRepository.loginWithEmail(tEmail, tPassword));
+        verifyNoMoreInteractions(mockAuthRepository);
+      },
+    );
+
+    test(
+      'should return a Failure when email login fails',
+      () async {
+        // arrange
+        const tFailure = ServerFailure('Server Failure');
+        when(() => mockAuthRepository.loginWithEmail(any(), any()))
+            .thenAnswer((_) async => const Left(tFailure));
+        // act
+        final result = await loginWithEmailUseCase(
+          const LoginWithEmailParams(email: tEmail, password: tPassword),
+        );
+        // assert
+        expect(result, const Left(tFailure));
+        verify(() => mockAuthRepository.loginWithEmail(tEmail, tPassword));
+        verifyNoMoreInteractions(mockAuthRepository);
+      },
+    );
+  });
+
+  group('LoginWithLinkedInUseCase', () {
+    test(
+      'should get user from the repository when LinkedIn login is successful',
+      () async {
+        // arrange
+        when(() => mockAuthRepository.loginWithLinkedIn(any()))
+            .thenAnswer((_) async => const Right(tUser));
+        // act
+        final result = await loginWithLinkedInUseCase(
+          const LoginWithLinkedInParams(linkedinToken: tLinkedInToken),
+        );
+        // assert
+        expect(result, const Right(tUser));
+        verify(() => mockAuthRepository.loginWithLinkedIn(tLinkedInToken));
+        verifyNoMoreInteractions(mockAuthRepository);
+      },
+    );
+
+    test(
+      'should return a Failure when LinkedIn login fails',
+      () async {
+        // arrange
+        const tFailure = ServerFailure('LinkedIn login failed');
+        when(() => mockAuthRepository.loginWithLinkedIn(any()))
+            .thenAnswer((_) async => const Left(tFailure));
+        // act
+        final result = await loginWithLinkedInUseCase(
+          const LoginWithLinkedInParams(linkedinToken: tLinkedInToken),
+        );
+        // assert
+        expect(result, const Left(tFailure));
+        verify(() => mockAuthRepository.loginWithLinkedIn(tLinkedInToken));
+        verifyNoMoreInteractions(mockAuthRepository);
+      },
+    );
+  });
 }

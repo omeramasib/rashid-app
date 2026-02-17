@@ -6,35 +6,54 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/user.dart';
 import '../repositories/auth_repository.dart';
 
-class RegisterUseCase implements UseCase<User, RegisterParams> {
+/// Use case for email registration
+class RegisterWithEmailUseCase implements UseCase<User, RegisterWithEmailParams> {
   final AuthRepository repository;
 
-  RegisterUseCase(this.repository);
+  RegisterWithEmailUseCase(this.repository);
 
   @override
-  Future<Either<Failure, User>> call(RegisterParams params) async {
-    return await repository.register(
+  Future<Either<Failure, User>> call(RegisterWithEmailParams params) async {
+    return await repository.registerWithEmail(
+      name: params.name,
       email: params.email,
       password: params.password,
-      name: params.name,
-      phone: params.phone,
     );
   }
 }
 
-class RegisterParams extends Equatable {
+class RegisterWithEmailParams extends Equatable {
+  final String name;
   final String email;
   final String password;
-  final String name;
-  final String phone;
 
-  const RegisterParams({
+  const RegisterWithEmailParams({
+    required this.name,
     required this.email,
     required this.password,
-    required this.name,
-    required this.phone,
   });
 
   @override
-  List<Object> get props => [email, password, name, phone];
+  List<Object> get props => [name, email, password];
+}
+
+/// Use case for LinkedIn registration (token from Clerk OAuth)
+class RegisterWithLinkedInUseCase implements UseCase<User, RegisterWithLinkedInParams> {
+  final AuthRepository repository;
+
+  RegisterWithLinkedInUseCase(this.repository);
+
+  @override
+  Future<Either<Failure, User>> call(RegisterWithLinkedInParams params) async {
+    return await repository.registerWithLinkedIn(params.linkedinToken);
+  }
+}
+
+class RegisterWithLinkedInParams extends Equatable {
+  final String linkedinToken;
+
+  const RegisterWithLinkedInParams({required this.linkedinToken});
+
+  @override
+  List<Object> get props => [linkedinToken];
 }

@@ -9,7 +9,11 @@ abstract class LoginState extends Equatable {
 
 class LoginInitial extends LoginState {}
 
+/// Loading state for email login
 class LoginLoading extends LoginState {}
+
+/// Loading state for LinkedIn OAuth login
+class LoginLinkedInLoading extends LoginState {}
 
 class LoginSuccess extends LoginState {
   final User user;

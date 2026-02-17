@@ -1,5 +1,14 @@
 class ApiEndpoints {
   static const String baseUrl = "http://10.0.2.2:8000";
-  static const String loginUrl = "$baseUrl/auth/login";
-  static const String registerUrl = "$baseUrl/auth/signup";
+
+  // Auth endpoints
+  static const String loginEmailUrl = "$baseUrl/auth/login/email";
+  static const String registerEmailUrl = "$baseUrl/auth/register/email";
+  static const String loginLinkedInUrl = "$baseUrl/auth/login/linkedin";
+  static const String registerLinkedInUrl = "$baseUrl/auth/register/linkedin";
+  static const String forgotPasswordUrl = "$baseUrl/auth/forgot-password";
+  static const String resetPasswordUrl = "$baseUrl/auth/reset-password";
+  static const String changePasswordUrl = "$baseUrl/auth/change-password";
+  static const String logoutUrl = "$baseUrl/auth/logout";
+  static const String currentUserUrl = "$baseUrl/auth/me";
 }

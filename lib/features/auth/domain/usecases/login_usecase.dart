@@ -6,23 +6,48 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/user.dart';
 import '../repositories/auth_repository.dart';
 
-class LoginUseCase implements UseCase<User, LoginParams> {
+/// Use case for email/password login
+class LoginWithEmailUseCase implements UseCase<User, LoginWithEmailParams> {
   final AuthRepository repository;
 
-  LoginUseCase(this.repository);
+  LoginWithEmailUseCase(this.repository);
 
   @override
-  Future<Either<Failure, User>> call(LoginParams params) async {
-    return await repository.login(params.email, params.password);
+  Future<Either<Failure, User>> call(LoginWithEmailParams params) async {
+    return await repository.loginWithEmail(params.email, params.password);
   }
 }
 
-class LoginParams extends Equatable {
+class LoginWithEmailParams extends Equatable {
   final String email;
   final String password;
 
-  const LoginParams({required this.email, required this.password});
+  const LoginWithEmailParams({
+    required this.email,
+    required this.password,
+  });
 
   @override
   List<Object> get props => [email, password];
+}
+
+/// Use case for LinkedIn login (token from Clerk OAuth)
+class LoginWithLinkedInUseCase implements UseCase<User, LoginWithLinkedInParams> {
+  final AuthRepository repository;
+
+  LoginWithLinkedInUseCase(this.repository);
+
+  @override
+  Future<Either<Failure, User>> call(LoginWithLinkedInParams params) async {
+    return await repository.loginWithLinkedIn(params.linkedinToken);
+  }
+}
+
+class LoginWithLinkedInParams extends Equatable {
+  final String linkedinToken;
+
+  const LoginWithLinkedInParams({required this.linkedinToken});
+
+  @override
+  List<Object> get props => [linkedinToken];
 }

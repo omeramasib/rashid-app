@@ -1,7 +1,5 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
@@ -26,25 +24,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       TextEditingController();
   final TextEditingController _emailTextEditingController =
       TextEditingController();
-  final TextEditingController _phoneTextEditingController =
-      TextEditingController();
   final TextEditingController _passwordTextEditingController =
       TextEditingController();
 
   final GlobalKey<FormState> registerFormKey = GlobalKey<FormState>();
-
-  final storage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
-  );
 
   @override
   void dispose() {
     _nameTextEditingController.dispose();
     _emailTextEditingController.dispose();
     _passwordTextEditingController.dispose();
-    _phoneTextEditingController.dispose();
     super.dispose();
   }
 
@@ -55,18 +44,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     registerFormKey.currentState!.save();
-    context.read<RegisterCubit>().register(
+    context.read<RegisterCubit>().registerWithEmail(
           name: _nameTextEditingController.text.trim(),
           email: _emailTextEditingController.text.trim(),
           password: _passwordTextEditingController.text.trim(),
-          phone: _phoneTextEditingController.text.trim(),
         );
+  }
+
+  void registerWithLinkedIn() {
+    context.read<RegisterCubit>().registerWithLinkedIn(context);
+  }
+
+  /// Build LinkedIn sign-in button with LinkedIn branding
+  Widget _buildLinkedInButton({
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF0A66C2), // LinkedIn blue
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // LinkedIn icon
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Center(
+                child: Text(
+                  'in',
+                  style: TextStyle(
+                    color: Color(0xFF0A66C2),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height;
-    final width = MediaQuery.of(context).size.width;
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -210,34 +254,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       SizedBox(height: height * 0.01),
 
-                      // Phone Field
-                      Padding(
-                        padding:
-                            const EdgeInsets.only(top: 5, left: 20, right: 20),
-                        child: SizedBox(
-                          height: height * 0.08,
-                          width: double.infinity,
-                          child: TextFormField(
-                            textInputAction: TextInputAction.next,
-                            keyboardType: TextInputType.phone,
-                            controller: _phoneTextEditingController,
-                            validator: (value) =>
-                                Validations.textValidation(value!, context),
-                            decoration: InputDecoration(
-                              fillColor: ColorsManager.whiteColor,
-                              filled: true,
-                              labelText: AppLocalizations.of(context)!
-                                  .translate("phone"),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(15),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: height * 0.01),
-
                       // Password Field
                       Padding(
                         padding:
@@ -321,6 +337,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 .translate("sign_up"),
                             context: context,
                             onPressed: register,
+                          );
+                        },
+                      ),
+                      SizedBox(height: height * 0.02),
+                      // Divider with "OR" text
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                AppLocalizations.of(context)!.translate('or'),
+                                style: const TextStyle(
+                                  color: ColorsManager.defaultGreyColor,
+                                ),
+                              ),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: height * 0.02),
+                      // LinkedIn Register Button
+                      BlocBuilder<RegisterCubit, RegisterState>(
+                        builder: (context, state) {
+                          if (state is RegisterLinkedInLoading) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF0A66C2),
+                              ),
+                            );
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: _buildLinkedInButton(
+                              text: AppLocalizations.of(context)!
+                                  .translate('login_with_linkedin'),
+                              onPressed: registerWithLinkedIn,
+                            ),
                           );
                         },
                       ),

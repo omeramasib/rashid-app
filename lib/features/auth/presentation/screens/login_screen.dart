@@ -15,6 +15,60 @@ import '../cubit/login/login_cubit.dart';
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
+  /// Build LinkedIn sign-in button with LinkedIn branding
+  Widget _buildLinkedInButton({
+    required BuildContext context,
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF0A66C2), // LinkedIn blue
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // LinkedIn icon
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Center(
+                child: Text(
+                  'in',
+                  style: TextStyle(
+                    color: Color(0xFF0A66C2),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     AppLocalizations localizations = AppLocalizations.of(context)!;
@@ -128,11 +182,42 @@ class LoginScreen extends StatelessWidget {
                             context: context,
                             onPressed: () {
                               if (formKey.currentState!.validate()) {
-                                cubit.login(
+                                cubit.loginWithEmail(
                                   email: emailController.text,
                                   password: passwordController.text,
                                 );
                               }
+                            },
+                          ),
+                    const SizedBox(height: 20),
+                    // Divider with "OR" text
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            localizations.translate('or'),
+                            style: const TextStyle(
+                              color: ColorsManager.defaultGreyColor,
+                            ),
+                          ),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    // LinkedIn Login Button
+                    state is LoginLinkedInLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _buildLinkedInButton(
+                            context: context,
+                            text:
+                                localizations.translate('login_with_linkedin'),
+                            onPressed: () {
+                              print(
+                                  'DEBUG: LoginScreen - Login with LinkedIn clicked');
+                              cubit.loginWithLinkedIn(context);
                             },
                           ),
                     const SizedBox(height: 20),

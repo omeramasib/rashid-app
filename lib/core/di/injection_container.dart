@@ -1,6 +1,8 @@
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
-import '../../core/storage/secure_storage_service.dart';
+import '../auth/clerk_auth_service.dart';
+import '../auth/clerk_config.dart';
+import '../storage/secure_storage_service.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
@@ -15,23 +17,31 @@ final sl = GetIt.instance;
 
 Future<void> init() async {
   //! Features - Auth
-  // Bloc
+  // Cubits
   sl.registerFactory(
     () => LoginCubit(
-      loginUseCase: sl(),
+      loginWithEmailUseCase: sl(),
+      loginWithLinkedInUseCase: sl(),
+      clerkAuthService: sl(),
       secureStorageService: sl(),
     ),
   );
   sl.registerFactory(
     () => RegisterCubit(
-      registerUseCase: sl(),
+      registerWithEmailUseCase: sl(),
+      registerWithLinkedInUseCase: sl(),
+      clerkAuthService: sl(),
       secureStorageService: sl(),
     ),
   );
 
-  // Use cases
-  sl.registerLazySingleton(() => LoginUseCase(sl()));
-  sl.registerLazySingleton(() => RegisterUseCase(sl()));
+  // Use cases - Login
+  sl.registerLazySingleton(() => LoginWithEmailUseCase(sl()));
+  sl.registerLazySingleton(() => LoginWithLinkedInUseCase(sl()));
+
+  // Use cases - Register
+  sl.registerLazySingleton(() => RegisterWithEmailUseCase(sl()));
+  sl.registerLazySingleton(() => RegisterWithLinkedInUseCase(sl()));
 
   // Repository
   sl.registerLazySingleton<AuthRepository>(
@@ -44,6 +54,13 @@ Future<void> init() async {
   );
 
   //! Core
+  // Clerk Auth Service
+  sl.registerLazySingleton<ClerkAuthService>(
+    () => ClerkConfig.isConfigured
+        ? ClerkAuthServiceImpl()
+        : MockClerkAuthService(),
+  );
+
   // Storage
   sl.registerLazySingleton(() => SecureStorageService());
 

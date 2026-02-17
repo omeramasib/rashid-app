@@ -9,80 +9,128 @@ import 'package:rashed_app/features/auth/domain/usecases/register_usecase.dart';
 class MockAuthRepository extends Mock implements AuthRepository {}
 
 void main() {
-  late RegisterUseCase usecase;
+  late RegisterWithEmailUseCase registerWithEmailUseCase;
+  late RegisterWithLinkedInUseCase registerWithLinkedInUseCase;
   late MockAuthRepository mockAuthRepository;
 
   setUp(() {
     mockAuthRepository = MockAuthRepository();
-    usecase = RegisterUseCase(mockAuthRepository);
+    registerWithEmailUseCase = RegisterWithEmailUseCase(mockAuthRepository);
+    registerWithLinkedInUseCase = RegisterWithLinkedInUseCase(mockAuthRepository);
   });
 
   const tEmail = 'test@test.com';
   const tPassword = 'password';
-  const tName = 'Teest User';
-  const tPhone = '1234567890';
-  const tUser = User(token: 'test_token');
-
-  test(
-    'should get user from the repository when registration is successful',
-    () async {
-      // arrange
-      when(() => mockAuthRepository.register(
-            email: any(named: 'email'),
-            password: any(named: 'password'),
-            name: any(named: 'name'),
-            phone: any(named: 'phone'),
-          )).thenAnswer((_) async => const Right(tUser));
-
-      // act
-      final result = await usecase(const RegisterParams(
-        email: tEmail,
-        password: tPassword,
-        name: tName,
-        phone: tPhone,
-      ));
-
-      // assert
-      expect(result, const Right(tUser));
-      verify(() => mockAuthRepository.register(
-            email: tEmail,
-            password: tPassword,
-            name: tName,
-            phone: tPhone,
-          ));
-      verifyNoMoreInteractions(mockAuthRepository);
-    },
+  const tName = 'Test User';
+  const tLinkedInToken = 'linkedin_access_token';
+  const tUser = User(
+    id: 'test_id',
+    name: 'Test User',
+    email: 'test@test.com',
+    token: 'test_token',
   );
 
-  test(
-    'should return a Failure from the repository when registration fails',
-    () async {
-      // arrange
-      const tFailure = ServerFailure('Server Failure');
-      when(() => mockAuthRepository.register(
-            email: any(named: 'email'),
-            password: any(named: 'password'),
-            name: any(named: 'name'),
-            phone: any(named: 'phone'),
-          )).thenAnswer((_) async => const Left(tFailure));
+  group('RegisterWithEmailUseCase', () {
+    test(
+      'should get user from the repository when email registration is successful',
+      () async {
+        // arrange
+        when(() => mockAuthRepository.registerWithEmail(
+              name: any(named: 'name'),
+              email: any(named: 'email'),
+              password: any(named: 'password'),
+            )).thenAnswer((_) async => const Right(tUser));
 
-      // act
-      final result = await usecase(const RegisterParams(
-        email: tEmail,
-        password: tPassword,
-        name: tName,
-        phone: tPhone,
-      ));
-
-      // assert
-      expect(result, const Left(tFailure));
-      verify(() => mockAuthRepository.register(
+        // act
+        final result = await registerWithEmailUseCase(
+          const RegisterWithEmailParams(
+            name: tName,
             email: tEmail,
             password: tPassword,
+          ),
+        );
+
+        // assert
+        expect(result, const Right(tUser));
+        verify(() => mockAuthRepository.registerWithEmail(
+              name: tName,
+              email: tEmail,
+              password: tPassword,
+            ));
+        verifyNoMoreInteractions(mockAuthRepository);
+      },
+    );
+
+    test(
+      'should return a Failure when email registration fails',
+      () async {
+        // arrange
+        const tFailure = ServerFailure('Registration failed');
+        when(() => mockAuthRepository.registerWithEmail(
+              name: any(named: 'name'),
+              email: any(named: 'email'),
+              password: any(named: 'password'),
+            )).thenAnswer((_) async => const Left(tFailure));
+
+        // act
+        final result = await registerWithEmailUseCase(
+          const RegisterWithEmailParams(
             name: tName,
-            phone: tPhone,
-          ));
-      verifyNoMoreInteractions(mockAuthRepository);
-    },
-  );
+            email: tEmail,
+            password: tPassword,
+          ),
+        );
+
+        // assert
+        expect(result, const Left(tFailure));
+        verify(() => mockAuthRepository.registerWithEmail(
+              name: tName,
+              email: tEmail,
+              password: tPassword,
+            ));
+        verifyNoMoreInteractions(mockAuthRepository);
+      },
+    );
+  });
+
+  group('RegisterWithLinkedInUseCase', () {
+    test(
+      'should get user from the repository when LinkedIn registration is successful',
+      () async {
+        // arrange
+        when(() => mockAuthRepository.registerWithLinkedIn(any()))
+            .thenAnswer((_) async => const Right(tUser));
+
+        // act
+        final result = await registerWithLinkedInUseCase(
+          const RegisterWithLinkedInParams(linkedinToken: tLinkedInToken),
+        );
+
+        // assert
+        expect(result, const Right(tUser));
+        verify(() => mockAuthRepository.registerWithLinkedIn(tLinkedInToken));
+        verifyNoMoreInteractions(mockAuthRepository);
+      },
+    );
+
+    test(
+      'should return a Failure when LinkedIn registration fails',
+      () async {
+        // arrange
+        const tFailure = ServerFailure('LinkedIn registration failed');
+        when(() => mockAuthRepository.registerWithLinkedIn(any()))
+            .thenAnswer((_) async => const Left(tFailure));
+
+        // act
+        final result = await registerWithLinkedInUseCase(
+          const RegisterWithLinkedInParams(linkedinToken: tLinkedInToken),
+        );
+
+        // assert
+        expect(result, const Left(tFailure));
+        verify(() => mockAuthRepository.registerWithLinkedIn(tLinkedInToken));
+        verifyNoMoreInteractions(mockAuthRepository);
+      },
+    );
+  });
 }

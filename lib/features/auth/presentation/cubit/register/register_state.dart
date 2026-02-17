@@ -9,7 +9,11 @@ abstract class RegisterState extends Equatable {
 
 class RegisterInitial extends RegisterState {}
 
+/// Loading state for email registration
 class RegisterLoading extends RegisterState {}
+
+/// Loading state for LinkedIn OAuth registration
+class RegisterLinkedInLoading extends RegisterState {}
 
 class RegisterSuccess extends RegisterState {
   final User user;
