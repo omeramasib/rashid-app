@@ -75,7 +75,7 @@ void main() {
             .thenAnswer((_) async => const Right(tUser));
         // act
         final result = await loginWithLinkedInUseCase(
-          const LoginWithLinkedInParams(linkedinToken: tLinkedInToken),
+          const LoginWithLinkedInParams(clerkSessionJwt: tLinkedInToken),
         );
         // assert
         expect(result, const Right(tUser));
@@ -93,7 +93,7 @@ void main() {
             .thenAnswer((_) async => const Left(tFailure));
         // act
         final result = await loginWithLinkedInUseCase(
-          const LoginWithLinkedInParams(linkedinToken: tLinkedInToken),
+          const LoginWithLinkedInParams(clerkSessionJwt: tLinkedInToken),
         );
         // assert
         expect(result, const Left(tFailure));

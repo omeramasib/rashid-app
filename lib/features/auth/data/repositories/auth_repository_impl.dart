@@ -39,18 +39,19 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, User>> loginWithLinkedIn(String linkedinToken) async {
+  Future<Either<Failure, User>> loginWithLinkedIn(
+      String clerkSessionJwt) async {
     return _handleAuthRequest(
-      () => remoteDataSource.loginWithLinkedIn(linkedinToken),
+      () => remoteDataSource.loginWithLinkedIn(clerkSessionJwt),
     );
   }
 
   @override
   Future<Either<Failure, User>> registerWithLinkedIn(
-    String linkedinToken,
+    String clerkSessionJwt,
   ) async {
     return _handleAuthRequest(
-      () => remoteDataSource.registerWithLinkedIn(linkedinToken),
+      () => remoteDataSource.registerWithLinkedIn(clerkSessionJwt),
     );
   }
 
@@ -61,6 +62,8 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final user = await request();
       return Right(user);
+    } on UserNotFoundException catch (e) {
+      return Left(UserNotFoundFailure(e.message));
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
     } catch (e) {

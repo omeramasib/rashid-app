@@ -9,7 +9,7 @@ class ClerkConfig {
   /// Format: pk_test_xxx or pk_live_xxx
   static const String publishableKey = String.fromEnvironment(
     'CLERK_PUBLISHABLE_KEY',
-    defaultValue: '',
+    defaultValue: 'pk_test_YW1wbGUtcGhlYXNhbnQtODUuY2xlcmsuYWNjb3VudHMuZGV2JA',
   );
 
   /// Check if Clerk is properly configured

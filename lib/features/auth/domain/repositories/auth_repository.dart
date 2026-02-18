@@ -3,7 +3,7 @@ import '../../../../core/error/failures.dart';
 import '../entities/user.dart';
 
 /// Repository contract for authentication operations.
-/// 
+///
 /// Defines all auth methods following Clean Architecture principles.
 /// Implementation handles data source communication and error mapping.
 abstract class AuthRepository {
@@ -19,11 +19,11 @@ abstract class AuthRepository {
     required String password,
   });
 
-  /// Login with LinkedIn token (obtained via Clerk OAuth)
+  /// Login with LinkedIn via Clerk session JWT
   /// Returns User with token on success
-  Future<Either<Failure, User>> loginWithLinkedIn(String linkedinToken);
+  Future<Either<Failure, User>> loginWithLinkedIn(String clerkSessionJwt);
 
-  /// Register with LinkedIn token (obtained via Clerk OAuth)
+  /// Register with LinkedIn via Clerk session JWT
   /// Returns User with token on success
-  Future<Either<Failure, User>> registerWithLinkedIn(String linkedinToken);
+  Future<Either<Failure, User>> registerWithLinkedIn(String clerkSessionJwt);
 }

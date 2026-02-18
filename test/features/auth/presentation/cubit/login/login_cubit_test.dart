@@ -8,12 +8,16 @@ import 'package:rashed_app/core/error/failures.dart';
 import 'package:rashed_app/core/storage/secure_storage_service.dart';
 import 'package:rashed_app/features/auth/domain/entities/user.dart';
 import 'package:rashed_app/features/auth/domain/usecases/login_usecase.dart';
+import 'package:rashed_app/features/auth/domain/usecases/register_usecase.dart';
 import 'package:rashed_app/features/auth/presentation/cubit/login/login_cubit.dart';
 
 class MockLoginWithEmailUseCase extends Mock implements LoginWithEmailUseCase {}
 
 class MockLoginWithLinkedInUseCase extends Mock
     implements LoginWithLinkedInUseCase {}
+
+class MockRegisterWithLinkedInUseCase extends Mock
+    implements RegisterWithLinkedInUseCase {}
 
 class MockClerkAuthService extends Mock implements ClerkAuthService {}
 
@@ -25,6 +29,7 @@ void main() {
   late LoginCubit cubit;
   late MockLoginWithEmailUseCase mockLoginWithEmailUseCase;
   late MockLoginWithLinkedInUseCase mockLoginWithLinkedInUseCase;
+  late MockRegisterWithLinkedInUseCase mockRegisterWithLinkedInUseCase;
   late MockClerkAuthService mockClerkAuthService;
   late MockSecureStorageService mockSecureStorageService;
 
@@ -33,6 +38,7 @@ void main() {
   setUp(() {
     mockLoginWithEmailUseCase = MockLoginWithEmailUseCase();
     mockLoginWithLinkedInUseCase = MockLoginWithLinkedInUseCase();
+    mockRegisterWithLinkedInUseCase = MockRegisterWithLinkedInUseCase();
     mockClerkAuthService = MockClerkAuthService();
     mockSecureStorageService = MockSecureStorageService();
     mockBuildContext = MockBuildContext();
@@ -43,6 +49,7 @@ void main() {
     cubit = LoginCubit(
       loginWithEmailUseCase: mockLoginWithEmailUseCase,
       loginWithLinkedInUseCase: mockLoginWithLinkedInUseCase,
+      registerWithLinkedInUseCase: mockRegisterWithLinkedInUseCase,
       clerkAuthService: mockClerkAuthService,
       secureStorageService: mockSecureStorageService,
     );
@@ -54,7 +61,7 @@ void main() {
       password: 'password',
     ));
     registerFallbackValue(
-      const LoginWithLinkedInParams(linkedinToken: 'token'),
+      const LoginWithLinkedInParams(clerkSessionJwt: 'token'),
     );
   });
 

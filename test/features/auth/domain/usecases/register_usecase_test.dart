@@ -16,7 +16,8 @@ void main() {
   setUp(() {
     mockAuthRepository = MockAuthRepository();
     registerWithEmailUseCase = RegisterWithEmailUseCase(mockAuthRepository);
-    registerWithLinkedInUseCase = RegisterWithLinkedInUseCase(mockAuthRepository);
+    registerWithLinkedInUseCase =
+        RegisterWithLinkedInUseCase(mockAuthRepository);
   });
 
   const tEmail = 'test@test.com';
@@ -103,7 +104,7 @@ void main() {
 
         // act
         final result = await registerWithLinkedInUseCase(
-          const RegisterWithLinkedInParams(linkedinToken: tLinkedInToken),
+          const RegisterWithLinkedInParams(clerkSessionJwt: tLinkedInToken),
         );
 
         // assert
@@ -123,7 +124,7 @@ void main() {
 
         // act
         final result = await registerWithLinkedInUseCase(
-          const RegisterWithLinkedInParams(linkedinToken: tLinkedInToken),
+          const RegisterWithLinkedInParams(clerkSessionJwt: tLinkedInToken),
         );
 
         // assert

@@ -5,6 +5,7 @@ import 'package:rashed_app/app/routes_name.dart';
 
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
+import '../features/home/presentation/screens/home_screen.dart';
 
 class Routes {
   static String currentRoute = RoutesName.splash;
@@ -17,6 +18,14 @@ class Routes {
     switch (routeSettings.name) {
       // Auth Screens Routes
       // case RoutesName.splash:
+
+      case RoutesName.home:
+        {
+          return CupertinoPageRoute(
+            builder: (_) => const HomeScreen(),
+            settings: routeSettings,
+          );
+        }
 
       case RoutesName.login:
         {

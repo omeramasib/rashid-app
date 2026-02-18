@@ -63,7 +63,7 @@ class RegisterCubit extends Cubit<RegisterState> {
 
     // Step 2: Send LinkedIn token to backend for registration
     final result = await registerWithLinkedInUseCase(
-      RegisterWithLinkedInParams(linkedinToken: clerkResult.accessToken!),
+      RegisterWithLinkedInParams(clerkSessionJwt: clerkResult.accessToken!),
     );
 
     result.fold(

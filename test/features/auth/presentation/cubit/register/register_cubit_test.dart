@@ -56,7 +56,7 @@ void main() {
       password: 'password',
     ));
     registerFallbackValue(
-      const RegisterWithLinkedInParams(linkedinToken: 'token'),
+      const RegisterWithLinkedInParams(clerkSessionJwt: 'token'),
     );
   });
 

@@ -17,13 +17,13 @@ abstract class AuthRemoteDataSource {
     required String password,
   });
 
-  /// Login with LinkedIn token (obtained from Clerk OAuth)
+  /// Login with LinkedIn via Clerk session JWT
   /// POST /auth/login/linkedin
-  Future<UserModel> loginWithLinkedIn(String linkedinToken);
+  Future<UserModel> loginWithLinkedIn(String clerkSessionJwt);
 
-  /// Register with LinkedIn token (obtained from Clerk OAuth)
+  /// Register with LinkedIn via Clerk session JWT
   /// POST /auth/register/linkedin
-  Future<UserModel> registerWithLinkedIn(String linkedinToken);
+  Future<UserModel> registerWithLinkedIn(String clerkSessionJwt);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -70,12 +70,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<UserModel> loginWithLinkedIn(String linkedinToken) async {
+  Future<UserModel> loginWithLinkedIn(String clerkSessionJwt) async {
     final response = await client.post(
       Uri.parse(ApiEndpoints.loginLinkedInUrl),
       headers: _headers,
       body: json.encode({
-        'linkedin_token': linkedinToken,
+        'clerk_session_jwt': clerkSessionJwt,
       }),
     );
 
@@ -83,12 +83,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<UserModel> registerWithLinkedIn(String linkedinToken) async {
+  Future<UserModel> registerWithLinkedIn(String clerkSessionJwt) async {
     final response = await client.post(
       Uri.parse(ApiEndpoints.registerLinkedInUrl),
       headers: _headers,
       body: json.encode({
-        'linkedin_token': linkedinToken,
+        'clerk_session_jwt': clerkSessionJwt,
       }),
     );
 
@@ -108,6 +108,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       } else {
         throw ServerException(jsonResponse['message'] ?? defaultError);
       }
+    } else if (response.statusCode == 404) {
+      // User not found — caller can auto-register
+      String message = 'User not found';
+      try {
+        final jsonResponse = json.decode(response.body);
+        message = jsonResponse['detail'] ??
+            jsonResponse['message'] ??
+            jsonResponse['error'] ??
+            message;
+      } catch (_) {}
+      throw UserNotFoundException(message);
     } else {
       // Try to extract error message from response body
       try {

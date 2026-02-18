@@ -22,6 +22,7 @@ Future<void> init() async {
     () => LoginCubit(
       loginWithEmailUseCase: sl(),
       loginWithLinkedInUseCase: sl(),
+      registerWithLinkedInUseCase: sl(),
       clerkAuthService: sl(),
       secureStorageService: sl(),
     ),

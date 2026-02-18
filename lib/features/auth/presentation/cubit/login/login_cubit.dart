@@ -2,15 +2,18 @@ import 'package:flutter/widgets.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../../core/auth/clerk_auth_service.dart';
+import '../../../../../core/error/failures.dart';
 import '../../../../../core/storage/secure_storage_service.dart';
 import '../../../domain/entities/user.dart';
 import '../../../domain/usecases/login_usecase.dart';
+import '../../../domain/usecases/register_usecase.dart';
 
 part 'login_state.dart';
 
 class LoginCubit extends Cubit<LoginState> {
   final LoginWithEmailUseCase loginWithEmailUseCase;
   final LoginWithLinkedInUseCase loginWithLinkedInUseCase;
+  final RegisterWithLinkedInUseCase registerWithLinkedInUseCase;
   final ClerkAuthService clerkAuthService;
   final SecureStorageService secureStorageService;
   bool isPasswordVisible = false;
@@ -18,6 +21,7 @@ class LoginCubit extends Cubit<LoginState> {
   LoginCubit({
     required this.loginWithEmailUseCase,
     required this.loginWithLinkedInUseCase,
+    required this.registerWithLinkedInUseCase,
     required this.clerkAuthService,
     required this.secureStorageService,
   }) : super(LoginInitial());
@@ -42,53 +46,44 @@ class LoginCubit extends Cubit<LoginState> {
     );
   }
 
-  /// Login with LinkedIn via Clerk OAuth
+  /// Login with LinkedIn via Clerk OAuth.
+  /// If the user is not found (404), automatically registers them.
   Future<void> loginWithLinkedIn(BuildContext context) async {
     print('DEBUG: LoginCubit - loginWithLinkedIn called');
     emit(LoginLinkedInLoading());
 
-    // Step 1: Get LinkedIn token from Clerk OAuth
+    // Step 1: Get Clerk session JWT
     print('DEBUG: LoginCubit - Calling clerkAuthService.signInWithLinkedIn');
     final clerkResult = await clerkAuthService.signInWithLinkedIn(context);
     print(
-        'DEBUG: LoginCubit - clerkResult: isSuccess=${clerkResult.isSuccess}, error=${clerkResult.error}, token=${clerkResult.accessToken}');
+        'DEBUG: LoginCubit - clerkResult: isSuccess=${clerkResult.isSuccess}, error=${clerkResult.error}');
 
     if (!clerkResult.isSuccess) {
       emit(LoginFailure(clerkResult.error ?? 'LinkedIn authentication failed'));
       return;
     }
 
-    // Step 2: Send LinkedIn token to backend
-    final result = await loginWithLinkedInUseCase(
-      LoginWithLinkedInParams(linkedinToken: clerkResult.accessToken!),
+    final jwt = clerkResult.accessToken!;
+
+    // Step 2: Try login
+    print('DEBUG: LoginCubit - Attempting LinkedIn login');
+    final loginResult = await loginWithLinkedInUseCase(
+      LoginWithLinkedInParams(clerkSessionJwt: jwt),
     );
 
-    result.fold(
+    await loginResult.fold(
       (failure) async {
-        // If LinkedIn connection expired, sign out from Clerk and retry once
-        if (failure.message.toLowerCase().contains('expired') ||
-            failure.message.toLowerCase().contains('reconnect')) {
-          print(
-              'DEBUG: LoginCubit - LinkedIn connection expired, signing out and retrying');
-          await clerkAuthService.signOut(context);
-
-          // Retry the entire flow
-          final retryClerkResult =
-              await clerkAuthService.signInWithLinkedIn(context);
-          if (!retryClerkResult.isSuccess) {
-            emit(LoginFailure(
-                retryClerkResult.error ?? 'LinkedIn re-authentication failed'));
-            return;
-          }
-
-          final retryResult = await loginWithLinkedInUseCase(
-            LoginWithLinkedInParams(
-                linkedinToken: retryClerkResult.accessToken!),
+        if (failure is UserNotFoundFailure) {
+          // Step 3: User not found → auto-register
+          print('DEBUG: LoginCubit - User not found, auto-registering');
+          final registerResult = await registerWithLinkedInUseCase(
+            RegisterWithLinkedInParams(clerkSessionJwt: jwt),
           );
 
-          retryResult.fold(
-            (retryFailure) => emit(LoginFailure(retryFailure.message)),
+          registerResult.fold(
+            (regFailure) => emit(LoginFailure(regFailure.message)),
             (user) async {
+              print('DEBUG: LoginCubit - Auto-registration successful');
               await _storeUserCredentials(user);
               emit(LoginSuccess(user));
             },
@@ -98,6 +93,7 @@ class LoginCubit extends Cubit<LoginState> {
         }
       },
       (user) async {
+        print('DEBUG: LoginCubit - LinkedIn login successful');
         await _storeUserCredentials(user);
         emit(LoginSuccess(user));
       },

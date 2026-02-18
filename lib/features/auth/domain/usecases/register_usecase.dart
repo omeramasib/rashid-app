@@ -7,7 +7,8 @@ import '../entities/user.dart';
 import '../repositories/auth_repository.dart';
 
 /// Use case for email registration
-class RegisterWithEmailUseCase implements UseCase<User, RegisterWithEmailParams> {
+class RegisterWithEmailUseCase
+    implements UseCase<User, RegisterWithEmailParams> {
   final AuthRepository repository;
 
   RegisterWithEmailUseCase(this.repository);
@@ -37,23 +38,24 @@ class RegisterWithEmailParams extends Equatable {
   List<Object> get props => [name, email, password];
 }
 
-/// Use case for LinkedIn registration (token from Clerk OAuth)
-class RegisterWithLinkedInUseCase implements UseCase<User, RegisterWithLinkedInParams> {
+/// Use case for LinkedIn registration (Clerk session JWT)
+class RegisterWithLinkedInUseCase
+    implements UseCase<User, RegisterWithLinkedInParams> {
   final AuthRepository repository;
 
   RegisterWithLinkedInUseCase(this.repository);
 
   @override
   Future<Either<Failure, User>> call(RegisterWithLinkedInParams params) async {
-    return await repository.registerWithLinkedIn(params.linkedinToken);
+    return await repository.registerWithLinkedIn(params.clerkSessionJwt);
   }
 }
 
 class RegisterWithLinkedInParams extends Equatable {
-  final String linkedinToken;
+  final String clerkSessionJwt;
 
-  const RegisterWithLinkedInParams({required this.linkedinToken});
+  const RegisterWithLinkedInParams({required this.clerkSessionJwt});
 
   @override
-  List<Object> get props => [linkedinToken];
+  List<Object> get props => [clerkSessionJwt];
 }

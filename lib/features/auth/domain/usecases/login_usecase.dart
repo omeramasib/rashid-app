@@ -31,23 +31,24 @@ class LoginWithEmailParams extends Equatable {
   List<Object> get props => [email, password];
 }
 
-/// Use case for LinkedIn login (token from Clerk OAuth)
-class LoginWithLinkedInUseCase implements UseCase<User, LoginWithLinkedInParams> {
+/// Use case for LinkedIn login (Clerk session JWT)
+class LoginWithLinkedInUseCase
+    implements UseCase<User, LoginWithLinkedInParams> {
   final AuthRepository repository;
 
   LoginWithLinkedInUseCase(this.repository);
 
   @override
   Future<Either<Failure, User>> call(LoginWithLinkedInParams params) async {
-    return await repository.loginWithLinkedIn(params.linkedinToken);
+    return await repository.loginWithLinkedIn(params.clerkSessionJwt);
   }
 }
 
 class LoginWithLinkedInParams extends Equatable {
-  final String linkedinToken;
+  final String clerkSessionJwt;
 
-  const LoginWithLinkedInParams({required this.linkedinToken});
+  const LoginWithLinkedInParams({required this.clerkSessionJwt});
 
   @override
-  List<Object> get props => [linkedinToken];
+  List<Object> get props => [clerkSessionJwt];
 }

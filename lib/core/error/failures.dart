@@ -19,3 +19,7 @@ class CacheFailure extends Failure {
 class AuthFailure extends Failure {
   const AuthFailure(super.message);
 }
+
+class UserNotFoundFailure extends Failure {
+  const UserNotFoundFailure(super.message);
+}
