@@ -36,6 +36,7 @@ dev_dependencies:
     sdk: flutter
   mocktail: ^1.0.4
   bloc_test: ^10.0.0
+  flutter_launcher_icons: ^0.14.4
 
 
 flutter:
@@ -62,3 +63,10 @@ flutter:
 
 flutter_intl:
   enabled: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/png/rashed_app_logo.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true

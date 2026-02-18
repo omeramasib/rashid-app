@@ -7,6 +7,7 @@ import 'package:rashed_app/app/app_routes.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/di/injection_container.dart' as di;
+import 'package:rashed_app/core/theme/theme.dart';
 
 import 'features/auth/presentation/cubit/login/login_cubit.dart';
 import 'features/auth/presentation/cubit/register/register_cubit.dart';
@@ -36,10 +37,7 @@ class MyApp extends StatelessWidget {
         ],
         child: MaterialApp(
           title: 'Rashed App',
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-            useMaterial3: true,
-          ),
+          theme: AppTheme.lightTheme,
           debugShowCheckedModeBanner: false,
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -51,16 +49,16 @@ class MyApp extends StatelessWidget {
             Locale('ar', 'SA'),
             Locale('en', 'US'),
           ],
-          localeResolutionCallback: (locale, supportedLocales) {
-            for (var locale in supportedLocales) {
-              if (locale.languageCode == locale.languageCode &&
-                  locale.countryCode == locale.countryCode) {
-                return locale;
+          localeResolutionCallback: (deviceLocale, supportedLocales) {
+            for (final supportedLocale in supportedLocales) {
+              if (supportedLocale.languageCode == deviceLocale?.languageCode &&
+                  supportedLocale.countryCode == deviceLocale?.countryCode) {
+                return supportedLocale;
               }
             }
             return supportedLocales.first;
           },
-          initialRoute: RoutesName.login,
+          initialRoute: RoutesName.splash,
           onGenerateRoute: Routes.onGenerateRouted,
           locale: const Locale('ar'),
         ),

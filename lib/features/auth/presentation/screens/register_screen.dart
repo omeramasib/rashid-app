@@ -314,7 +314,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             );
                             Navigator.pushReplacementNamed(
                               context,
-                              RoutesName.home,
+                              RoutesName.linkedinImport,
                             );
                           } else if (state is RegisterFailure) {
                             CustomSnackBars.errorSnackBar(
