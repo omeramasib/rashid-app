@@ -55,20 +55,79 @@ class AuthRepositoryImpl implements AuthRepository {
     );
   }
 
+  @override
+  Future<Either<Failure, void>> forgotPassword(String email) async {
+    return _handleVoidAuthRequest(
+      () => remoteDataSource.forgotPassword(email),
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> resetPassword(
+      String token, String newPassword) async {
+    return _handleVoidAuthRequest(
+      () => remoteDataSource.resetPassword(token, newPassword),
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> changePassword(
+      String currentPassword, String newPassword) async {
+    return _handleVoidAuthRequest(
+      () => remoteDataSource.changePassword(currentPassword, newPassword),
+    );
+  }
+
+  @override
+  Future<Either<Failure, void>> logout() async {
+    return _handleVoidAuthRequest(
+      () => remoteDataSource.logout(),
+    );
+  }
+
+  @override
+  Future<Either<Failure, User>> getCurrentUser() async {
+    return _handleAuthRequest(
+      () => remoteDataSource.getCurrentUser(),
+    );
+  }
+
   /// Generic handler for auth requests that maps exceptions to failures
-  Future<Either<Failure, User>> _handleAuthRequest(
-    Future<User> Function() request,
-  ) async {
+  Future<Either<Failure, T>> _handle<T>(Future<T> Function() request) async {
     try {
-      final user = await request();
-      return Right(user);
+      final result = await request();
+      return Right(result);
     } on UserNotFoundException catch (e) {
       return Left(UserNotFoundFailure(e.message));
+    } on BadRequestException catch (e) {
+      return Left(BadRequestFailure(e.message));
+    } on UnauthorizedException catch (e) {
+      return Left(UnauthorizedFailure(e.message));
+    } on ForbiddenException catch (e) {
+      return Left(ForbiddenFailure(e.message));
+    } on NotFoundException catch (e) {
+      return Left(NotFoundFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on UpstreamException catch (e) {
+      return Left(UpstreamFailure(e.message));
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
     } catch (e) {
       print('DEBUG: AuthRepository - Unexpected error: $e');
       return Left(ServerFailure('Unexpected Error: $e'));
     }
+  }
+
+  Future<Either<Failure, User>> _handleAuthRequest(
+    Future<User> Function() request,
+  ) async {
+    return _handle<User>(request);
+  }
+
+  Future<Either<Failure, void>> _handleVoidAuthRequest(
+    Future<void> Function() request,
+  ) async {
+    return _handle<void>(request);
   }
 }

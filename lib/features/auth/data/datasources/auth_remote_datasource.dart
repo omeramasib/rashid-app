@@ -1,7 +1,7 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../../../../core/error/exceptions.dart';
+import 'package:dio/dio.dart';
 import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/network/dio_client.dart';
+import '../../../../core/error/exceptions.dart';
 import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
@@ -24,30 +24,53 @@ abstract class AuthRemoteDataSource {
   /// Register with LinkedIn via Clerk session JWT
   /// POST /auth/register/linkedin
   Future<UserModel> registerWithLinkedIn(String clerkSessionJwt);
+
+  /// Forgot password
+  /// POST /auth/forgot-password
+  Future<void> forgotPassword(String email);
+
+  /// Reset password
+  /// POST /auth/reset-password
+  Future<void> resetPassword(String token, String newPassword);
+
+  /// Change password
+  /// POST /auth/change-password
+  Future<void> changePassword(String currentPassword, String newPassword);
+
+  /// Logout
+  /// POST /auth/logout
+  Future<void> logout();
+
+  /// Get current user
+  /// GET /auth/me
+  Future<UserModel> getCurrentUser();
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
-  final http.Client client;
+  final DioClient client;
 
   AuthRemoteDataSourceImpl({required this.client});
 
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
+  Dio get _dio => client.dio;
 
   @override
   Future<UserModel> loginWithEmail(String email, String password) async {
-    final response = await client.post(
-      Uri.parse(ApiEndpoints.loginEmailUrl),
-      headers: _headers,
-      body: json.encode({
-        'email': email,
-        'password': password,
-      }),
-    );
-
-    return _handleAuthResponse(response, 'Login failed');
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.loginEmail,
+        data: {
+          'email': email,
+          'password': password,
+        },
+      );
+      return UserModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
   }
 
   @override
@@ -56,83 +79,139 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String email,
     required String password,
   }) async {
-    final response = await client.post(
-      Uri.parse(ApiEndpoints.registerEmailUrl),
-      headers: _headers,
-      body: json.encode({
-        'name': name,
-        'email': email,
-        'password': password,
-      }),
-    );
-
-    return _handleAuthResponse(response, 'Registration failed');
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.registerEmail,
+        data: {
+          'name': name,
+          'email': email,
+          'password': password,
+        },
+      );
+      return UserModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
   }
 
   @override
   Future<UserModel> loginWithLinkedIn(String clerkSessionJwt) async {
-    final response = await client.post(
-      Uri.parse(ApiEndpoints.loginLinkedInUrl),
-      headers: _headers,
-      body: json.encode({
-        'clerk_session_jwt': clerkSessionJwt,
-      }),
-    );
-
-    return _handleAuthResponse(response, 'LinkedIn login failed');
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.loginLinkedIn,
+        data: {
+          'clerk_session_jwt': clerkSessionJwt,
+        },
+      );
+      return UserModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
   }
 
   @override
   Future<UserModel> registerWithLinkedIn(String clerkSessionJwt) async {
-    final response = await client.post(
-      Uri.parse(ApiEndpoints.registerLinkedInUrl),
-      headers: _headers,
-      body: json.encode({
-        'clerk_session_jwt': clerkSessionJwt,
-      }),
-    );
-
-    return _handleAuthResponse(response, 'LinkedIn registration failed');
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.registerLinkedIn,
+        data: {
+          'clerk_session_jwt': clerkSessionJwt,
+        },
+      );
+      return UserModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
   }
 
-  /// Handles auth response parsing consistently
-  UserModel _handleAuthResponse(http.Response response, String defaultError) {
-    print(
-        'DEBUG: AuthRemoteDataSource - Response status: ${response.statusCode}');
-    print('DEBUG: AuthRemoteDataSource - Response body: ${response.body}');
+  @override
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.forgotPassword,
+        data: {'email': email},
+      );
+    } on DioException catch (e) {
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
 
-    if (response.statusCode == 200) {
-      final jsonResponse = json.decode(response.body);
-      if (jsonResponse['status'] == 'success') {
-        return UserModel.fromJson(jsonResponse);
-      } else {
-        throw ServerException(jsonResponse['message'] ?? defaultError);
-      }
-    } else if (response.statusCode == 404) {
-      // User not found — caller can auto-register
-      String message = 'User not found';
-      try {
-        final jsonResponse = json.decode(response.body);
-        message = jsonResponse['detail'] ??
-            jsonResponse['message'] ??
-            jsonResponse['error'] ??
-            message;
-      } catch (_) {}
-      throw UserNotFoundException(message);
-    } else {
-      // Try to extract error message from response body
-      try {
-        final jsonResponse = json.decode(response.body);
-        // FastAPI uses 'detail', other backends use 'message'
-        final errorMessage = jsonResponse['detail'] ??
-            jsonResponse['message'] ??
-            jsonResponse['error'] ??
-            defaultError;
-        throw ServerException('$errorMessage');
-      } catch (e) {
-        if (e is ServerException) rethrow;
-        throw ServerException('$defaultError (${response.statusCode})');
-      }
+  @override
+  Future<void> resetPassword(String token, String newPassword) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.resetPassword,
+        data: {'token': token, 'new_password': newPassword},
+      );
+    } on DioException catch (e) {
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<void> changePassword(
+      String currentPassword, String newPassword) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.changePassword,
+        data: {
+          'current_password': currentPassword,
+          'new_password': newPassword
+        },
+      );
+    } on DioException catch (e) {
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<void> logout() async {
+    try {
+      await _dio.post(ApiEndpoints.logout);
+    } on DioException catch (e) {
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<UserModel> getCurrentUser() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.currentUser);
+      return UserModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
+    } catch (e) {
+      throw ServerException(e.toString());
     }
   }
 }

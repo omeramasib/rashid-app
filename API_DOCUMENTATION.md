@@ -13,7 +13,7 @@ For protected endpoints, send:
 JWT notes:
 - JWT `sub` is always `user.id` (UUID string).
 - Auth routes are under `/auth/*`.
-- Product routes are under `/api/v1/*`.
+- Product routes are under `/api/v1/*`.f
 
 ## Standard Response Shape
 Most endpoints use:

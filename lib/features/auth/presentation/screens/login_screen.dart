@@ -56,11 +56,14 @@ class LoginScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              text,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -224,7 +227,12 @@ class LoginScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(localizations.translate('do_not_have_account')),
+                        Flexible(
+                          child: Text(
+                            localizations.translate('do_not_have_account'),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                         TextButton(
                           onPressed: () {
                             Navigator.pushNamed(context, RoutesName.register);
