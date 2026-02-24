@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/error/exceptions.dart';
@@ -109,9 +110,27 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
       return UserModel.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
+      final appError = e.error;
+      String errorMessage = 'Unknown error';
+
+      if (appError is AppException) {
+        errorMessage = appError.message;
+      } else if (e.response?.data != null) {
+        errorMessage = e.response?.data.toString() ?? 'Unknown error';
+      } else {
+        errorMessage = e.message ?? 'Unknown error';
+      }
+
+      debugPrint('loginWithLinkedIn Error Captured: $errorMessage');
+      debugPrint('loginWithLinkedIn DioException details:\n'
+          '  - Error: ${e.error}\n'
+          '  - Message: ${e.message}\n'
+          '  - Type: ${e.type}\n'
+          '  - Response statusCode: ${e.response?.statusCode}\n'
+          '  - Response statusMessage: ${e.response?.statusMessage}\n'
+          '  - Response data: ${e.response?.data}');
+
+      throw appError is AppException ? appError : ServerException(errorMessage);
     } catch (e) {
       throw ServerException(e.toString());
     }
