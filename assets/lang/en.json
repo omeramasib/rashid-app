@@ -1,5 +1,7 @@
 {
     "login": "Login",
+    "fullName": "Full Name",
+    "register_des": "Sign up to be your personal assistant on your journey!",
     "login_des": "Sign in to be your personal assistant on your journey!",
     "email": "Email",
     "password": "Password",
@@ -10,5 +12,10 @@
     "or": "Or",
     "login_with_linkedin": "Login with your LinkedIn account",
     "full_name": "Full Name",
-    "already_have_an_account": "Already have an account ?"
+    "already_have_an_account": "Already have an account ?",
+    "please_enter_text":"Please enter text",
+    "please_enter_password":"Please enter password",
+    "password_must_be":"Password must be at least 8 characters",
+    "please_enter_email":"Please enter email",
+    "please_enter_valid_email":"Please enter valid email"
 }
