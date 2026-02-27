@@ -1,18 +1,19 @@
 import 'package:flutter/cupertino.dart';
+import 'package:rashed_app/app_localizations.dart';
 
 class Validations {
     static String? textValidation(String value, BuildContext context) {
     if (value.isEmpty) {
-      return 'Please enter text';
+      return AppLocalizations.of(context)!.translate("please_enter_text");
     } else {
       return null;
     }
   }
   static String? validatePassword(String value, BuildContext context) {
     if (value.isEmpty) {
-      return "Please enter password";
+      return AppLocalizations.of(context)!.translate("please_enter_password");
     } else if (value.length < 8) {
-      return "Password must be at least 8 characters";
+      return AppLocalizations.of(context)!.translate("password_must_be");
     } else {
       return null;
     }
@@ -22,9 +23,9 @@ class Validations {
         r'^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$';
     RegExp regex =  RegExp(pattern.toString());
     if (value.isEmpty) {
-      return "Please enter email";
+      return AppLocalizations.of(context)!.translate("please_enter_email");
     } else if (!regex.hasMatch(value)) {
-      return "Please enter valid email";
+      return AppLocalizations.of(context)!.translate("please_enter_valid_email");
     } else {
       return null;
     }
