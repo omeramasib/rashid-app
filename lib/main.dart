@@ -8,6 +8,7 @@ import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/di/injection_container.dart' as di;
 import 'package:rashed_app/core/theme/theme.dart';
+import 'package:rashed_app/features/auth/presentation/cubit/password/password_cubit.dart';
 
 import 'features/auth/presentation/cubit/login/login_cubit.dart';
 import 'features/auth/presentation/cubit/register/register_cubit.dart';
@@ -33,6 +34,9 @@ class MyApp extends StatelessWidget {
           ),
           BlocProvider(
             create: (context) => di.sl<RegisterCubit>(),
+          ),
+          BlocProvider(
+            create: (context) => di.sl<PasswordCubit>(),
           ),
         ],
         child: MaterialApp(

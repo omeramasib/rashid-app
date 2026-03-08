@@ -24,5 +24,6 @@
     "new_password": "كلمة المرور الجديدة",
     "confirm_password": "تأكيد كلمة المرور",
     "confirm_password_not_match": "تأكيد كلمة المرور غير متطابق",
-    "please_enter_confirm_password": "الرجاء إدخال تأكيد كلمة المرور"
+    "please_enter_confirm_password": "الرجاء إدخال تأكيد كلمة المرور",
+    "password_reset_seccessfully": "تم إعادة تعيين كلمة المرور بنجاح"
 }

@@ -18,10 +18,10 @@ class Validations {
       return null;
     }
   }
-  static String? validateConfirmPassword(String password, String confirmPassword, BuildContext context) {
+  static String? validateConfirmPassword(String newPassword, String confirmPassword, BuildContext context) {
    if (confirmPassword.isEmpty) {
       return AppLocalizations.of(context)!.translate("please_enter_confirm_password");
-    } else if(password != confirmPassword){
+    } else if(newPassword != confirmPassword){
       return AppLocalizations.of(context)!.translate("confirm_password_not_match");
     } 
     else {

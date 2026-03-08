@@ -24,5 +24,6 @@
     "new_password": "New password",
     "confirm_password": "Confirm password",
     "confirm_password_not_match": "Confirm password not match",
-    "please_enter_confirm_password": "Please enter confirm password"
+    "please_enter_confirm_password": "Please enter confirm password",
+    "password_reset_seccessfully": "Password reset seccessfully"
 }
