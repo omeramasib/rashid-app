@@ -313,7 +313,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           if (state is RegisterSuccess) {
                             CustomSnackBars.sucssesSnackBar(
                               context: context,
-                              message: "Register Successfully",
+                              message: AppLocalizations.of(context)!
+                                .translate("register_successfully"),
                             );
                             Navigator.pushReplacementNamed(
                               context,
