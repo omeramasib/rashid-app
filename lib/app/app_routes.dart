@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:rashed_app/app/routes_name.dart';
+import 'package:rashed_app/features/auth/presentation/screens/reset_password_screen.dart';
 
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
@@ -67,6 +68,14 @@ class Routes {
             settings: routeSettings,
           );
         }
+
+      case RoutesName.resetPassword:
+        {
+          return CupertinoPageRoute(
+            builder: (_) => const ResetPasswordScreen(),
+            settings: routeSettings,
+          );
+        }  
 
       case RoutesName.profile:
         {

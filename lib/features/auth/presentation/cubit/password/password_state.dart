@@ -23,3 +23,12 @@ class PasswordError extends PasswordState {
 class ForgotPasswordSuccess extends PasswordState {}
 
 class ResetPasswordSuccess extends PasswordState {}
+
+
+class ViewPasswordState extends PasswordState {
+  final bool enabled;
+  const ViewPasswordState({required this.enabled});
+
+  @override
+  List<Object> get props => [enabled];
+}

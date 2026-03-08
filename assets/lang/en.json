@@ -17,5 +17,13 @@
     "please_enter_password":"Please enter password",
     "password_must_be":"Password must be at least 8 characters",
     "please_enter_email":"Please enter email",
-    "please_enter_valid_email":"Please enter valid email"
+    "please_enter_valid_email":"Please enter valid email",
+    "login_successfully": "Login successfully",
+    "register_successfully": "Register successfully",
+    "reset_password": "Reset password",
+    "new_password": "New password",
+    "confirm_password": "Confirm password",
+    "confirm_password_not_match": "Confirm password not match",
+    "please_enter_confirm_password": "Please enter confirm password",
+    "password_reset_seccessfully": "Password reset seccessfully"
 }

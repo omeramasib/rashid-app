@@ -9,6 +9,7 @@ part 'password_state.dart';
 class PasswordCubit extends Cubit<PasswordState> {
   final ForgotPasswordUseCase forgotPasswordUseCase;
   final ResetPasswordUseCase resetPasswordUseCase;
+  bool isPasswordVisible = false;
 
   PasswordCubit({
     required this.forgotPasswordUseCase,
@@ -35,5 +36,10 @@ class PasswordCubit extends Cubit<PasswordState> {
       (failure) => emit(PasswordError(failure.message)),
       (_) => emit(ResetPasswordSuccess()),
     );
+  }
+
+  void viewPassword() {
+    isPasswordVisible = !isPasswordVisible;
+    emit(ViewPasswordState(enabled: isPasswordVisible));
   }
 }
