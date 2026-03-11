@@ -25,5 +25,7 @@
     "confirm_password": "Confirm password",
     "confirm_password_not_match": "Confirm password not match",
     "please_enter_confirm_password": "Please enter confirm password",
-    "password_reset_seccessfully": "Password reset seccessfully"
+    "password_reset_seccessfully": "Password reset seccessfully",
+    "send_email": "Send Email",
+    "forgot_password_description": "Enter your email address and we will send an OTP to your email to reset your password."
 }
