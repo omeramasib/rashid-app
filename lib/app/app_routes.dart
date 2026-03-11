@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:rashed_app/app/routes_name.dart';
+import 'package:rashed_app/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:rashed_app/features/auth/presentation/screens/reset_password_screen.dart';
 
 import '../features/auth/presentation/screens/login_screen.dart';
@@ -60,6 +61,14 @@ class Routes {
             settings: routeSettings,
           );
         }
+
+      case RoutesName.forgotPassword:
+        {
+          return CupertinoPageRoute(
+            builder: (_) => const ForgotPasswordScreen(),
+            settings: routeSettings,
+          );
+        }   
 
       case RoutesName.otpVerification:
         {

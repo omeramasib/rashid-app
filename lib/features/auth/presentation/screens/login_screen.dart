@@ -168,7 +168,7 @@ class LoginScreen extends StatelessWidget {
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: () {
-                          // Handle forgot password
+                          Navigator.pushNamed(context, RoutesName.forgotPassword);
                         },
                         child: Text(
                           localizations.translate('forgot_password'),
