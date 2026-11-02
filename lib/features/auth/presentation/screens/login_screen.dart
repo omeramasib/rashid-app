@@ -184,12 +184,18 @@ class LoginScreen extends StatelessWidget {
                             text: localizations.translate('login'),
                             context: context,
                             onPressed: () {
-                              if (formKey.currentState!.validate()) {
-                                cubit.loginWithEmail(
-                                  email: emailController.text,
-                                  password: passwordController.text,
-                                );
-                              }
+                              // TEMP: skip login and go straight to home for testing.
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                RoutesName.home,
+                                (route) => false,
+                              );
+                              // if (formKey.currentState!.validate()) {
+                              //   cubit.loginWithEmail(
+                              //     email: emailController.text,
+                              //     password: passwordController.text,
+                              //   );
+                              // }
                             },
                           ),
                     const SizedBox(height: 20),
