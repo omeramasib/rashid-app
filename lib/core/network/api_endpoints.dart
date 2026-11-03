@@ -1,5 +1,13 @@
+import 'package:flutter/foundation.dart';
+
 class ApiEndpoints {
-  static const String baseUrl = 'https://rashed-backend.onrender.com';
+  static String get baseUrl {
+    const configuredUrl = String.fromEnvironment('API_BASE_URL');
+    if (configuredUrl.isNotEmpty) return configuredUrl;
+    return !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+        ? 'http://10.0.2.2:8000'
+        : 'http://localhost:8000';
+  }
 
   // Auth
   static const String loginEmail = '/auth/login/email';
@@ -7,6 +15,7 @@ class ApiEndpoints {
   static const String loginLinkedIn = '/auth/login/linkedin';
   static const String registerLinkedIn = '/auth/register/linkedin';
   static const String forgotPassword = '/auth/forgot-password';
+  static const String resendOtp = '/auth/resend-otp';
   static const String resetPassword = '/auth/reset-password';
   static const String changePassword = '/auth/change-password';
   static const String logout = '/auth/logout';

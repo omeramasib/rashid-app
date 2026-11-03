@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/error/password_reset_problem.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
@@ -57,17 +58,43 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, void>> forgotPassword(String email) async {
-    return _handleVoidAuthRequest(
+    return _handlePasswordRequest(
       () => remoteDataSource.forgotPassword(email),
     );
   }
 
   @override
-  Future<Either<Failure, void>> resetPassword(
-      String token, String newPassword) async {
-    return _handleVoidAuthRequest(
-      () => remoteDataSource.resetPassword(token, newPassword),
+  Future<Either<Failure, void>> resendOtp(String email) async {
+    return _handlePasswordRequest(() => remoteDataSource.resendOtp(email));
+  }
+
+  @override
+  Future<Either<Failure, void>> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    return _handlePasswordRequest(
+      () => remoteDataSource.resetPassword(
+        email: email,
+        otp: otp,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      ),
     );
+  }
+
+  Future<Either<Failure, void>> _handlePasswordRequest(
+      Future<void> Function() request) async {
+    try {
+      await request();
+      return const Right(null);
+    } on PasswordResetApiException catch (error) {
+      return Left(PasswordResetFailure(error.problem, fields: error.fields));
+    } catch (_) {
+      return const Left(PasswordResetFailure(PasswordResetProblem.unknown));
+    }
   }
 
   @override

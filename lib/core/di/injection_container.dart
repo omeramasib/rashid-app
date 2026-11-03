@@ -13,6 +13,7 @@ import '../../features/auth/presentation/cubit/register/register_cubit.dart';
 import '../../Presentation/utils/api_endpoints.dart';
 import '../../Presentation/utils/api_provider.dart';
 import '../../features/auth/domain/usecases/forgot_password_usecase.dart';
+import '../../features/auth/domain/usecases/resend_otp_usecase.dart';
 import '../../features/auth/domain/usecases/reset_password_usecase.dart';
 import '../../features/auth/domain/usecases/change_password_usecase.dart';
 import '../../features/auth/domain/usecases/logout_usecase.dart';
@@ -82,6 +83,7 @@ Future<void> init() async {
   sl.registerFactory(
     () => PasswordCubit(
       forgotPasswordUseCase: sl(),
+      resendOtpUseCase: sl(),
       resetPasswordUseCase: sl(),
     ),
   );
@@ -95,6 +97,7 @@ Future<void> init() async {
 
   // Use cases - Auth Extras
   sl.registerLazySingleton(() => ForgotPasswordUseCase(sl()));
+  sl.registerLazySingleton(() => ResendOtpUseCase(sl()));
   sl.registerLazySingleton(() => ResetPasswordUseCase(sl()));
   sl.registerLazySingleton(() => ChangePasswordUseCase(sl()));
   sl.registerLazySingleton(() => LogoutUseCase(sl()));

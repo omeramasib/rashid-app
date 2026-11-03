@@ -1,7 +1,8 @@
+import '../../core/network/api_endpoints.dart' as core;
+
 class ApiEndpoints {
-  // static String baseUrl = "http://10.0.2.2:8000";
-  static String baseUrl = "http://10.10.110.67:8000";
-  static String secondUrl = "${baseUrl}api/";
+  static String get baseUrl => core.ApiEndpoints.baseUrl;
+  static String get secondUrl => '$baseUrl/api/';
   String loginUrl = "$baseUrl/auth/login";
   String registerUrl = "$baseUrl/auth/signup";
   String forgotPasswordUrl = "${secondUrl}auth/forgot-password";

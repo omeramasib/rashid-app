@@ -71,8 +71,12 @@ class ResponseInterceptor extends Interceptor {
     if (body is Map<String, dynamic>) {
       final raw = body['detail'] ?? body['message'] ?? body['error'];
       if (raw is String) return raw;
-      if (raw is List)
-        return (raw.first?['msg'] ?? raw.first?.toString())?.toString();
+      if (raw is List && raw.isNotEmpty) {
+        final first = raw.first;
+        if (first is Map && first['msg'] is String) {
+          return first['msg'] as String;
+        }
+      }
     }
     return null;
   }

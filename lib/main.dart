@@ -55,8 +55,7 @@ class MyApp extends StatelessWidget {
           ],
           localeResolutionCallback: (deviceLocale, supportedLocales) {
             for (final supportedLocale in supportedLocales) {
-              if (supportedLocale.languageCode == deviceLocale?.languageCode &&
-                  supportedLocale.countryCode == deviceLocale?.countryCode) {
+              if (supportedLocale.languageCode == deviceLocale?.languageCode) {
                 return supportedLocale;
               }
             }
@@ -64,7 +63,6 @@ class MyApp extends StatelessWidget {
           },
           initialRoute: RoutesName.splash,
           onGenerateRoute: Routes.onGenerateRouted,
-          locale: const Locale('ar'),
         ),
       ),
     );

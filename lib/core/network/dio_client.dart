@@ -24,8 +24,11 @@ class DioClient {
       ResponseInterceptor(),
       if (kDebugMode)
         LogInterceptor(
-          requestBody: true,
-          responseBody: true,
+          requestBody: false,
+          responseBody: false,
+          requestHeader: false,
+          responseHeader: false,
+          error: false,
         ),
     ]);
   }

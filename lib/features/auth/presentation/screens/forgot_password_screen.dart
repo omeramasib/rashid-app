@@ -1,128 +1,116 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:rashed_app/Presentation/utils/custom_snackbars.dart';
-import 'package:rashed_app/app/routes_name.dart';
-import 'package:rashed_app/features/auth/presentation/cubit/password/password_cubit.dart';
-import '../../../../Presentation/utils/buttons.dart';
-import '../../../../Presentation/utils/colors.dart';
-import '../../../../Presentation/utils/images.dart';
-import '../../../../Presentation/utils/styles.dart';
-import '../../../../Presentation/utils/fonts.dart';
-import '../../../../Presentation/utils/validations.dart';
+
+import '../../../../app/routes_name.dart';
 import '../../../../app_localizations.dart';
+import '../../domain/password_reset_validation.dart';
+import '../cubit/password/password_cubit.dart';
+import 'password_flow_ui.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+  final String initialEmail;
+
+  const ForgotPasswordScreen({super.key, this.initialEmail = ''});
 
   @override
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final formKey = GlobalKey<FormState>();
-  final TextEditingController emailController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _email;
+  PasswordCubit? _cubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _email = TextEditingController(text: widget.initialEmail);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_cubit == null) {
+      _cubit = context.read<PasswordCubit>();
+      _cubit!.clearFlow();
+    }
+  }
 
   @override
   void dispose() {
-    emailController.dispose();
+    _cubit?.clearFlow();
+    _email.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations localizations = AppLocalizations.of(context)!;
-    var height = MediaQuery.of(context).size.height;
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: BlocConsumer<PasswordCubit, PasswordState>(
-        listener: (context, state) {
-          if (state is ForgotPasswordSuccess) {
-            CustomSnackBars.sucssesSnackBar(
-              context: context,
-              message: localizations.translate('verification_code_sent'),
-            );
-            Navigator.pushNamed(
-              context,
-              RoutesName.otpVerification,
-            );
-          } else if (state is PasswordError) {
-            CustomSnackBars.errorSnackBar(
-              context: context,
-              message: state.message,
-            );
-          }
-        },
-        builder: (context, state) {
-          PasswordCubit cubit = context.read<PasswordCubit>();
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(height: height * 0.12),
-                    Center(
-                      child: SvgPicture.asset(
-                        ImageManages.rashedImage,
-                        height: 130,
-                        width: 130,
-                      ),
-                    ),
-                    SizedBox(height: height * 0.04),
-                    Text(
-                      localizations.translate('forgot_password'),
-                      style: getBoldStyle(
-                        color: ColorsManager.fontColor,
-                        fontSize: FontSizeManager.s20,
-                      ),
-                      textAlign: TextAlign.start,
-                    ),
-                    SizedBox(height: height * 0.01),
-                    Text(
-                      localizations.translate('forgot_password_description'),
-                      style: getRegularStyle(
-                        color: ColorsManager.hintStyleColor,
-                        fontSize: FontSizeManager.s14,
-                      ),
-                      textAlign: TextAlign.start,
-                    ),
-                    SizedBox(height: height * 0.03),
-                    TextFormField(
-                      controller: emailController,
-                      decoration: InputDecoration(
-                        labelText: localizations.translate('email'),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      validator: (value) =>
-                          Validations.validateEmail(value!, context),
-                    ),
-                    SizedBox(height: height * 0.05),
-                    state is PasswordLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : ButtonsManager.primaryButton(
-                            text: localizations.translate('send_email'),
-                            context: context,
-                            onPressed: () {
-                              if (formKey.currentState!.validate()) {
-                                // handle send email
-                                cubit.forgotPassword(emailController.text);
-                              }
-                            },
-                          ),
-                  ],
-                ),
+    final strings = AppLocalizations.of(context)!;
+    return BlocConsumer<PasswordCubit, PasswordState>(
+      listenWhen: (previous, current) => previous.status != current.status,
+      listener: (context, state) {
+        if (state.status == PasswordStatus.emailAccepted) {
+          FocusScope.of(context).unfocus();
+          Navigator.pushNamed(context, RoutesName.otpVerification);
+        }
+      },
+      builder: (context, state) => PasswordFlowPage(
+        title: strings.translate('forgot_password'),
+        description: strings.translate('password_help'),
+        children: [
+          if (state.failure != null)
+            PasswordIssueBanner(failure: state.failure!),
+          Form(
+            key: _formKey,
+            child: TextFormField(
+              key: const Key('forgotEmail'),
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              textInputAction: TextInputAction.done,
+              enabled: !state.isBusy,
+              decoration: InputDecoration(
+                labelText: strings.translate('email'),
+                errorText: state.failure?.fields.contains('email') == true
+                    ? strings.translate('reset_email_error')
+                    : null,
               ),
+              validator: (value) =>
+                  PasswordResetValidation.isValidEmail(value ?? '')
+                      ? null
+                      : strings.translate('reset_email_error'),
+              onFieldSubmitted: (_) => _submit(state),
             ),
-          );
-        },
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            key: const Key('requestCode'),
+            onPressed: state.isBusy ? null : () => _submit(state),
+            child: state.status == PasswordStatus.submittingEmail
+                ? const CircularProgressIndicator()
+                : Text(strings.translate('continue')),
+          ),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: state.isBusy
+                ? null
+                : () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushNamedAndRemoveUntil(
+                          context, RoutesName.login, (_) => false);
+                    }
+                  },
+            child: Text(strings.translate('back_to_login')),
+          ),
+        ],
       ),
     );
+  }
+
+  void _submit(PasswordState state) {
+    if (state.isBusy || !_formKey.currentState!.validate()) return;
+    _cubit!.requestCode(_email.text);
   }
 }

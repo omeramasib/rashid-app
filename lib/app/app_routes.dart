@@ -2,8 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:rashed_app/app/routes_name.dart';
-import 'package:rashed_app/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:rashed_app/features/auth/presentation/screens/reset_password_screen.dart';
+import 'package:rashed_app/features/auth/presentation/screens/forgot_password_screen.dart';
+import 'package:rashed_app/features/auth/presentation/screens/password_reset_success_screen.dart';
 
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
@@ -65,10 +66,12 @@ class Routes {
       case RoutesName.forgotPassword:
         {
           return CupertinoPageRoute(
-            builder: (_) => const ForgotPasswordScreen(),
+            builder: (_) => ForgotPasswordScreen(
+              initialEmail: routeSettings.arguments as String? ?? '',
+            ),
             settings: routeSettings,
           );
-        }   
+        }
 
       case RoutesName.otpVerification:
         {
@@ -84,7 +87,15 @@ class Routes {
             builder: (_) => const ResetPasswordScreen(),
             settings: routeSettings,
           );
-        }  
+        }
+
+      case RoutesName.passwordResetSuccess:
+        {
+          return CupertinoPageRoute(
+            builder: (_) => const PasswordResetSuccessScreen(),
+            settings: routeSettings,
+          );
+        }
 
       case RoutesName.profile:
         {

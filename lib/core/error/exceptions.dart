@@ -1,6 +1,16 @@
+import 'password_reset_problem.dart';
+
 class AppException implements Exception {
   final String message;
   AppException(this.message);
+}
+
+class PasswordResetApiException extends AppException {
+  final PasswordResetProblem problem;
+  final Set<String> fields;
+
+  PasswordResetApiException(this.problem, {this.fields = const {}})
+      : super('Password reset request failed');
 }
 
 class ServerException extends AppException {

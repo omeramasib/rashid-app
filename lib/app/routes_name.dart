@@ -6,10 +6,11 @@ class RoutesName {
 
   // Auth Screens
   static const String login = "/login";
+  static const String forgotPassword = "/forgot-password";
   static const String register = "/register";
   static const String otpVerification = "/otp-verification";
   static const String resetPassword = "/reset-password";
-  static const String forgotPassword = "/forgot-password";
+  static const String passwordResetSuccess = "/password-reset-success";
 
   // Profile Screens
   static const String profile = "/profile";
@@ -25,5 +26,4 @@ class RoutesName {
   static const String items = "/items";
   static const String itemDetail = "/items/detail";
   static const String notifications = "/notifications";
-
 }

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'password_reset_problem.dart';
 
 abstract class Failure extends Equatable {
   final String message;
@@ -6,6 +7,17 @@ abstract class Failure extends Equatable {
 
   @override
   List<Object> get props => [message];
+}
+
+class PasswordResetFailure extends Failure {
+  final PasswordResetProblem problem;
+  final Set<String> fields;
+
+  const PasswordResetFailure(this.problem, {this.fields = const {}})
+      : super('Password reset request failed');
+
+  @override
+  List<Object> get props => [problem, ...(fields.toList()..sort())];
 }
 
 class ServerFailure extends Failure {
