@@ -409,52 +409,24 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           ),
           const SizedBox(height: 8),
           Container(
+            key: const Key('cv_skills_box'),
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: AppColors.white,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _skills
-                  .map(
-                    (skill) => Container(
-                      key: Key('cv_skill_$skill'),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.inputBg,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            key: Key('cv_remove_skill_$skill'),
-                            onTap: () => setState(() => _skills.remove(skill)),
-                            child: const Icon(
-                              Icons.close,
-                              size: 14,
-                              color: AppColors.hintColor,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            skill,
-                            style: AppTypography.regular(
-                              fontSize: 14,
-                              color: AppColors.primarySet2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final skill in _skills)
+                      _skillChip(skill, constraints.maxWidth),
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 10),
@@ -693,6 +665,67 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       text,
       style: AppTypography.regular(fontSize: 16, color: AppColors.black100),
     );
+  }
+
+  Widget _skillChip(String skill, double maxWidth) {
+    return Container(
+      key: Key('cv_skill_$skill'),
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.inputBg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text.rich(
+        TextSpan(
+          style: AppTypography.regular(
+            fontSize: 14,
+            color: AppColors.primarySet2,
+            height: 1.4,
+          ),
+          children: [
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(end: 6),
+                child: GestureDetector(
+                  key: Key('cv_remove_skill_$skill'),
+                  onTap: () => setState(() => _skills.remove(skill)),
+                  child: const Icon(
+                    Icons.close,
+                    size: 14,
+                    color: AppColors.hintColor,
+                  ),
+                ),
+              ),
+            ),
+            TextSpan(text: _softBreak(skill)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Gives long unbroken skill names a place to wrap without changing
+  /// the value that is saved.
+  String _softBreak(String value) {
+    const limit = 16;
+    final buffer = StringBuffer();
+    var run = 0;
+    for (final rune in value.runes) {
+      final char = String.fromCharCode(rune);
+      buffer.write(char);
+      if (char.trim().isEmpty) {
+        run = 0;
+        continue;
+      }
+      run++;
+      if (run >= limit) {
+        buffer.write('\u200b');
+        run = 0;
+      }
+    }
+    return buffer.toString();
   }
 
   Widget _valueBox(String text, Key key) {

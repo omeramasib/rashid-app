@@ -122,8 +122,12 @@ void main() {
 
   tearDown(() => cubit.close());
 
-  Future<void> pumpScreen(WidgetTester tester, Locale locale) async {
-    tester.view.physicalSize = const Size(800, 1600);
+  Future<void> pumpScreen(
+    WidgetTester tester,
+    Locale locale, {
+    Size size = const Size(800, 1600),
+  }) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -178,10 +182,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Jane Smith'), findsOneWidget);
     expect(find.text('Engineer'), findsOneWidget);
-    expect(find.text('Python'), findsOneWidget);
+    expect(find.byKey(const Key('cv_skill_Python')), findsOneWidget);
     expect(find.text('https://signed.example'), findsNothing);
     verify(() => upload(any())).called(1);
     verify(() => analyze(any())).called(1);
+  });
+
+  testWidgets('a long skill wraps inside the skills box', (tester) async {
+    const longSkill =
+        'Cross-functional stakeholder communication and technical writing';
+    const unbroken =
+        'SupercalifragilisticexpialidociousSkillNameWithoutAnySpacesAtAll';
+    when(() => upload(any())).thenAnswer((_) async {
+      return const Right(
+          CvModel(cvId: 'cv-1', fileUrl: 'https://signed.example'));
+    });
+    when(() => analyze(any())).thenAnswer((_) async {
+      return const Right(CvAnalysisResultModel(
+        fullName: 'Jane Smith',
+        jobTitles: ['Engineer'],
+        skills: [longSkill, unbroken, 'Python'],
+      ));
+    });
+    await pumpScreen(tester, const Locale('en'), size: const Size(360, 900));
+    await cubit.selectFile(pdf);
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const Key('cv_start_analysis')));
+    await tester.tap(find.byKey(const Key('cv_start_analysis')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final box = tester.getSize(find.byKey(const Key('cv_skills_box')));
+    for (final skill in [longSkill, unbroken]) {
+      final chip = tester.getSize(find.byKey(Key('cv_skill_$skill')));
+      expect(chip.width, lessThanOrEqualTo(box.width));
+    }
+    expect(
+      tester.getSize(find.byKey(Key('cv_skill_$longSkill'))).height,
+      greaterThan(
+          tester.getSize(find.byKey(const Key('cv_skill_Python'))).height),
+    );
+    await tester.tap(find.byKey(Key('cv_remove_skill_$unbroken')));
+    await tester.pump();
+    expect(find.byKey(Key('cv_skill_$unbroken')), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Arabic back arrow is mirrored to point right', (tester) async {
