@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:rashed_app/Presentation/utils/images.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/core/storage/secure_storage_service.dart';
+import 'package:rashed_app/features/cv/data/datasources/cv_local_datasource.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -158,8 +159,8 @@ class _WelcomeBanner extends StatelessWidget {
             right: 160,
             child: Text(
               'مرحبًا محمد  في راشد!\nجاهز لتحسين مهاراتك في المقابلات؟',
-              style:
-                  AppTypography.regular(fontSize: 14, color: AppColors.fontColor),
+              style: AppTypography.regular(
+                  fontSize: 14, color: AppColors.fontColor),
               textAlign: TextAlign.right,
             ),
           ),
@@ -324,8 +325,8 @@ class _SimulationCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               description,
-              style:
-                  AppTypography.regular(fontSize: 12, color: AppColors.fontColor),
+              style: AppTypography.regular(
+                  fontSize: 12, color: AppColors.fontColor),
               textAlign: TextAlign.right,
             ),
             const SizedBox(height: 12),
@@ -374,8 +375,10 @@ class _PerformanceBody extends StatelessWidget {
           Row(
             children: const [
               Expanded(
-                  child:
-                      _StatCard(label: 'متوسط الأداء', value: '72%', icon: Icons.star_outline)),
+                  child: _StatCard(
+                      label: 'متوسط الأداء',
+                      value: '72%',
+                      icon: Icons.star_outline)),
               SizedBox(width: 12),
               Expanded(
                   child: _StatCard(
@@ -468,7 +471,8 @@ class _BestResultBanner extends StatelessWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value, required this.icon});
+  const _StatCard(
+      {required this.label, required this.value, required this.icon});
   final String label;
   final String value;
   final IconData icon;
@@ -497,10 +501,12 @@ class _StatCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(label,
-              style: AppTypography.regular(fontSize: 12, color: AppColors.fontColor)),
+              style: AppTypography.regular(
+                  fontSize: 12, color: AppColors.fontColor)),
           const Spacer(),
           Text(value,
-              style: AppTypography.regular(fontSize: 20, color: AppColors.primarySet2)),
+              style: AppTypography.regular(
+                  fontSize: 20, color: AppColors.primarySet2)),
         ],
       ),
     );
@@ -521,7 +527,8 @@ class _InterviewLog extends StatelessWidget {
         children: [
           Text(
             'سجل مقابلات',
-            style: AppTypography.regular(fontSize: 16, color: AppColors.fontColor),
+            style:
+                AppTypography.regular(fontSize: 16, color: AppColors.fontColor),
             textAlign: TextAlign.right,
           ),
           const SizedBox(height: 12),
@@ -599,7 +606,8 @@ class _MoreBody extends StatelessWidget {
             context,
             Icons.badge_outlined,
             'اكمال الملف الشخصي',
-            onTap: () => Navigator.pushNamed(context, RoutesName.completeProfile),
+            onTap: () =>
+                Navigator.pushNamed(context, RoutesName.completeProfile),
           ),
           _menuTile(context, Icons.help_outline, 'المساعدة'),
           _menuTile(context, Icons.info_outline, 'عن التطبيق'),
@@ -610,6 +618,10 @@ class _MoreBody extends StatelessWidget {
             isDestructive: true,
             onTap: () async {
               final storage = GetIt.instance<SecureStorageService>();
+              final userId = await storage.read(key: 'user_id');
+              if (userId != null && userId.isNotEmpty) {
+                await GetIt.instance<CvLocalDataSource>().delete(userId);
+              }
               await storage.delete(key: 'token');
               await storage.delete(key: 'user_id');
               await storage.delete(key: 'email');

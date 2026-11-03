@@ -56,6 +56,38 @@ class NetworkFailure extends Failure {
   const NetworkFailure(super.message);
 }
 
+class RequestTimeoutFailure extends NetworkFailure {
+  const RequestTimeoutFailure(super.message);
+}
+
+class RequestCancelledFailure extends Failure {
+  const RequestCancelledFailure(super.message);
+}
+
+class ConflictFailure extends Failure {
+  const ConflictFailure(super.message);
+}
+
+class PayloadTooLargeFailure extends Failure {
+  const PayloadTooLargeFailure(super.message);
+}
+
+class ValidationFailure extends Failure {
+  const ValidationFailure(super.message);
+}
+
+class RateLimitFailure extends Failure {
+  const RateLimitFailure(super.message);
+}
+
+class ServiceUnavailableFailure extends Failure {
+  const ServiceUnavailableFailure(super.message);
+}
+
+class GatewayTimeoutFailure extends Failure {
+  const GatewayTimeoutFailure(super.message);
+}
+
 class UpstreamFailure extends Failure {
   const UpstreamFailure(super.message);
 }

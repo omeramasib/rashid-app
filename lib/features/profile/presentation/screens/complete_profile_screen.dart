@@ -1,8 +1,17 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rashed_app/Presentation/utils/images.dart';
 import 'package:rashed_app/app/routes_name.dart';
+import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/theme/theme.dart';
+import 'package:rashed_app/core/widgets/app_back_button.dart';
+import 'package:rashed_app/features/cv/domain/cv_file_rules.dart';
+import 'package:rashed_app/features/cv/domain/entities/selected_cv_file.dart';
+import 'package:rashed_app/features/cv/presentation/cubit/cv_cubit.dart';
+
+enum _CvView { upload, processing, results, recorded, success }
 
 class CompleteProfileScreen extends StatefulWidget {
   const CompleteProfileScreen({super.key});
@@ -12,68 +21,118 @@ class CompleteProfileScreen extends StatefulWidget {
 }
 
 class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
-  int _step = 0;
-
-  final TextEditingController _nameController =
-      TextEditingController(text: 'محمد نصار');
-  final TextEditingController _jobTitleController =
-      TextEditingController(text: 'مصمم تجربة المستخدم');
+  bool _showSuccess = false;
+  bool _picking = false;
+  bool _unreadable = false;
+  String _fullName = '';
+  List<String> _titles = const [];
+  List<String> _skills = const [];
+  String? _appliedCvId;
   final TextEditingController _newSkillController = TextEditingController();
 
-  final List<String> _skills = <String>[
-    'تصميم تجربة المستخدم',
-    'UX UI',
-    'Agile',
-    'حل المشاكل',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    context.read<CvCubit>().load();
+  }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _jobTitleController.dispose();
     _newSkillController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildTopBar(),
-              if (_step < 3) _buildStepper(),
-              const SizedBox(height: 8),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: _buildStepContent(),
+    return BlocConsumer<CvCubit, CvState>(
+      listener: _onState,
+      builder: (context, state) {
+        final phase = _phase(state);
+        return Scaffold(
+          backgroundColor: AppColors.white,
+          body: SafeArea(
+            child: Column(
+              children: [
+                _buildTopBar(context, phase),
+                if (phase != _CvView.success && phase != _CvView.recorded)
+                  _buildStepper(context, phase),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: _buildBody(context, state, phase),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildTopBar() {
-    final String title = _step == 3 ? 'اكمال الملف الشخصي' : 'الملف الشخصي';
+  void _onState(BuildContext context, CvState state) {
+    if (state is CvSessionExpired) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        RoutesName.login,
+        (route) => false,
+      );
+      return;
+    }
+    if (state is CvAnalyzed && _appliedCvId != state.cvId) {
+      _appliedCvId = state.cvId;
+      _fullName = state.result.fullName;
+      _titles = List<String>.of(state.result.jobTitles);
+      _skills = List<String>.of(state.result.skills);
+    }
+    if (state is SkillsUpdated) {
+      _showSuccess = true;
+    } else if (state is CvUploading || state is CvFileSelected) {
+      _showSuccess = false;
+    }
+  }
+
+  _CvView _phase(CvState state) {
+    if (_showSuccess) return _CvView.success;
+    if (state is CvUploading ||
+        state is CvSavingUpload ||
+        state is CvAnalyzing) {
+      return _CvView.processing;
+    }
+    if (state is CvAnalysisRecorded) return _CvView.recorded;
+    if (state is CvAnalyzed ||
+        ((state is SkillsUpdating || state is CvError) &&
+            _appliedCvId != null)) {
+      return _CvView.results;
+    }
+    return _CvView.upload;
+  }
+
+  Widget _buildBody(BuildContext context, CvState state, _CvView phase) {
+    switch (phase) {
+      case _CvView.processing:
+        return _buildProcessing(context, state);
+      case _CvView.results:
+        return _buildResultStep(context, state);
+      case _CvView.recorded:
+        return _buildRecorded(context);
+      case _CvView.success:
+        return _buildSuccessStep(context);
+      case _CvView.upload:
+        return _buildUploadStep(context, state);
+    }
+  }
+
+  Widget _buildTopBar(BuildContext context, _CvView phase) {
+    final title = phase == _CvView.results || phase == _CvView.success
+        ? _t(context, 'cv_result_title')
+        : _t(context, 'cv_title');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: const SizedBox(
-              width: 40,
-              height: 40,
-              child: Icon(Icons.chevron_right, size: 30, color: AppColors.black100),
-            ),
-          ),
+          const AppBackButton(),
           Expanded(
             child: Center(
               child: ShaderMask(
@@ -81,19 +140,26 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     AppColors.primaryGradient.createShader(bounds),
                 child: Text(
                   title,
-                  style:
-                      AppTypography.regular(fontSize: 20, color: AppColors.white),
+                  style: AppTypography.regular(
+                    fontSize: 20,
+                    color: AppColors.white,
+                  ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 40),
+          const SizedBox(width: 48),
         ],
       ),
     );
   }
 
-  Widget _buildStepper() {
+  Widget _buildStepper(BuildContext context, _CvView phase) {
+    final active = phase == _CvView.processing
+        ? 1
+        : phase == _CvView.results
+            ? 2
+            : 0;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       padding: const EdgeInsets.all(10),
@@ -103,11 +169,26 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       ),
       child: Row(
         children: [
-          Expanded(child: _stepChip(text: 'حمل سيرتك', isActive: _step == 0)),
+          Expanded(
+            child: _stepChip(
+              text: _t(context, 'cv_step_upload'),
+              isActive: active == 0,
+            ),
+          ),
           const SizedBox(width: 8),
-          Expanded(child: _stepChip(text: 'تحليل السيرة', isActive: _step == 1)),
+          Expanded(
+            child: _stepChip(
+              text: _t(context, 'cv_step_analyze'),
+              isActive: active == 1,
+            ),
+          ),
           const SizedBox(width: 8),
-          Expanded(child: _stepChip(text: 'نتيجة التحليل', isActive: _step == 2)),
+          Expanded(
+            child: _stepChip(
+              text: _t(context, 'cv_step_result'),
+              isActive: active == 2,
+            ),
+          ),
         ],
       ),
     );
@@ -132,79 +213,149 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  Widget _buildStepContent() {
-    if (_step == 0) return _buildUploadStep();
-    if (_step == 1) return _buildProcessingStep();
-    if (_step == 2) return _buildResultStep();
-    return _buildSuccessStep();
-  }
-
-  Widget _buildUploadStep() {
+  Widget _buildUploadStep(BuildContext context, CvState state) {
+    final cubit = context.read<CvCubit>();
+    final selected = state is CvFileSelected ? state.file : null;
+    final canStart = selected != null || state is CvUploadSaved;
     return _stepShell(
-      topText: 'سنقوم بتحليل السيرة الذاتية لاستخراج\nمهاراتك ومعلوماتك الأساسية!',
-      subtitle: 'الملفات المدعومة: PDF فقط',
+      topText: state is CvUploadSaved
+          ? _t(context, 'cv_ready_existing')
+          : _t(context, 'cv_intro'),
+      subtitle: _t(context, 'cv_pdf_only'),
       footer: Column(
         children: [
-          Container(
-            width: double.infinity,
-            height: 96,
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.black10),
+          if (_messageFor(context, state) != null) ...[
+            Text(
+              _messageFor(context, state)!,
+              key: const Key('cv_status_message'),
+              textAlign: TextAlign.center,
+              style: AppTypography.regular(
+                fontSize: 14,
+                color: AppColors.error,
+              ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.upload, size: 34, color: AppColors.hintColor),
-                const SizedBox(height: 6),
-                Text(
-                  'حمل سيرتك الذاتية',
-                  style: AppTypography.regular(
-                    fontSize: 13,
-                    color: AppColors.hintColor,
+            const SizedBox(height: 12),
+          ],
+          if (state is CvUploadFailed && state.preserved != null) ...[
+            Text(
+              _t(context, 'cv_previous_kept'),
+              textAlign: TextAlign.center,
+              style: AppTypography.regular(
+                fontSize: 13,
+                color: AppColors.fontColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          GestureDetector(
+            key: const Key('cv_pick_file'),
+            onTap: _picking ? null : () => _pickFile(context),
+            child: Container(
+              width: double.infinity,
+              height: 96,
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.black10),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.upload,
+                      size: 34, color: AppColors.hintColor),
+                  const SizedBox(height: 6),
+                  Text(
+                    selected == null
+                        ? _t(context, 'cv_pick')
+                        : '${selected.name} · ${_formatSize(selected.sizeBytes)}',
+                    key: const Key('cv_selected_file'),
+                    textAlign: TextAlign.center,
+                    style: AppTypography.regular(
+                      fontSize: 13,
+                      color: AppColors.hintColor,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 20),
-          _primaryCta(
-            text: 'ابدأ التحليل الآن',
-            onTap: () => setState(() => _step = 1),
-          ),
+          if (state is CvAwaitingPersistence)
+            _primaryCta(
+              key: const Key('cv_retry_persistence'),
+              text: _t(context, 'cv_retry_save'),
+              onTap: cubit.retryPersistence,
+            )
+          else if (state is CvAnalysisFailed)
+            _primaryCta(
+              key: const Key('cv_retry_analysis'),
+              text: _t(context, 'cv_retry_analysis'),
+              onTap: cubit.retryAnalysis,
+            )
+          else
+            _primaryCta(
+              key: const Key('cv_start_analysis'),
+              text: _t(context, 'cv_start'),
+              onTap: canStart ? cubit.startAnalysis : null,
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildProcessingStep() {
+  Widget _buildProcessing(BuildContext context, CvState state) {
+    final cubit = context.read<CvCubit>();
+    final uploading = state is CvUploading;
+    final progress = uploading && state.total > 0
+        ? (state.sent / state.total).clamp(0, 1).toDouble()
+        : null;
+    final finishedSending =
+        uploading && state.total > 0 && state.sent >= state.total;
+    final label = state is CvSavingUpload
+        ? _t(context, 'cv_saving')
+        : state is CvAnalyzing
+            ? _t(context, 'cv_analyzing')
+            : finishedSending
+                ? _t(context, 'cv_upload_finishing')
+                : _t(context, 'cv_uploading');
     return _stepShell(
-      topText: 'نقوم بمعالجة سيرتك الذاتية... لن يستغرق\nالأمر وقتًا طويلاً!',
-      subtitle: null,
+      topText: label,
+      subtitle: _t(context, 'cv_cancel_note'),
       footer: Column(
         children: [
-          const SizedBox(height: 12),
-          SizedBox(
-            width: 90,
-            height: 90,
-            child: CircularProgressIndicator(
-              strokeWidth: 10,
+          if (uploading) ...[
+            LinearProgressIndicator(
+              key: const Key('cv_progress'),
+              value: progress,
+              minHeight: 8,
+              color: AppColors.primary,
               backgroundColor: AppColors.black10,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
             ),
-          ),
-          const SizedBox(height: 36),
+            const SizedBox(height: 8),
+            Text(
+              progress == null ? '' : '${(progress * 100).round()}%',
+              key: const Key('cv_progress_label'),
+            ),
+          ] else
+            const SizedBox(
+              width: 72,
+              height: 72,
+              child: CircularProgressIndicator(strokeWidth: 8),
+            ),
+          const SizedBox(height: 20),
           _primaryCta(
-            text: 'التالي',
-            onTap: () => setState(() => _step = 2),
+            key: const Key('cv_cancel'),
+            text: _t(context, 'cv_cancel'),
+            onTap: cubit.cancelActiveRequest,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildResultStep() {
+  Widget _buildResultStep(BuildContext context, CvState state) {
+    final name = _fullName.trim().isEmpty ? _t(context, 'cv_none') : _fullName;
+    final titles = _titles.where((title) => title.trim().isNotEmpty).toList();
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 18),
@@ -214,18 +365,43 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _label('الإسم'),
+          if (state is CvAnalyzed && !state.statusPersisted) ...[
+            Text(
+              _t(context, 'cv_persistence_pending'),
+              textAlign: TextAlign.center,
+              style: AppTypography.regular(
+                fontSize: 13,
+                color: AppColors.fontColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _primaryCta(
+              key: const Key('cv_retry_persistence'),
+              text: _t(context, 'cv_retry_save'),
+              onTap: context.read<CvCubit>().retryPersistence,
+            ),
+            const SizedBox(height: 14),
+          ],
+          _label(_t(context, 'cv_name')),
           const SizedBox(height: 8),
-          _input(_nameController),
+          _valueBox(name, const Key('cv_full_name')),
           const SizedBox(height: 14),
-          _label('المسمى الوظيفي'),
+          _label(_t(context, 'cv_job_title')),
           const SizedBox(height: 8),
-          _input(_jobTitleController),
-          const SizedBox(height: 14),
+          if (titles.isEmpty)
+            _valueBox(_t(context, 'cv_none'), const Key('cv_job_titles'))
+          else
+            ...titles.map(
+              (title) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _valueBox(title, Key('cv_job_title_$title')),
+              ),
+            ),
+          const SizedBox(height: 6),
           Text(
-            'هذه مهاراتك المستخرجة، هل ترغب في إضافة المزيد؟',
+            _t(context, 'cv_skills_prompt'),
             style: AppTypography.regular(
               fontSize: 14,
               color: AppColors.fontColor,
@@ -245,6 +421,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               children: _skills
                   .map(
                     (skill) => Container(
+                      key: Key('cv_skill_$skill'),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 6,
@@ -257,11 +434,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _skills.remove(skill);
-                              });
-                            },
+                            key: Key('cv_remove_skill_$skill'),
+                            onTap: () => setState(() => _skills.remove(skill)),
                             child: const Icon(
                               Icons.close,
                               size: 14,
@@ -294,11 +468,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
+                  key: const Key('cv_new_skill'),
                   controller: _newSkillController,
-                  textAlign: TextAlign.right,
+                  textAlign: TextAlign.start,
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'إضافة مهارة جديدة',
+                    hintText: _t(context, 'cv_add_skill'),
                     hintStyle: AppTypography.regular(
                       fontSize: 14,
                       color: AppColors.hintColor,
@@ -306,10 +481,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     border: InputBorder.none,
                   ),
                   onSubmitted: (value) {
-                    final String trimmed = value.trim();
-                    if (trimmed.isEmpty) return;
+                    final trimmed = value.trim();
+                    if (trimmed.isEmpty || _skills.contains(trimmed)) return;
                     setState(() {
-                      _skills.add(trimmed);
+                      _skills = [..._skills, trimmed];
                       _newSkillController.clear();
                     });
                   },
@@ -317,38 +492,55 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               ),
             ],
           ),
+          if (state is CvError) ...[
+            const SizedBox(height: 8),
+            Text(
+              state.message,
+              key: const Key('cv_status_message'),
+              style: AppTypography.regular(
+                fontSize: 13,
+                color: AppColors.error,
+              ),
+            ),
+          ],
           const SizedBox(height: 18),
           _primaryCta(
-            text: 'حفظ واستمرار',
-            onTap: () => setState(() => _step = 3),
+            key: const Key('cv_save_skills'),
+            text: _t(context, 'cv_save'),
+            onTap: state is SkillsUpdating
+                ? null
+                : () => context.read<CvCubit>().updateSkills(List.of(_skills)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSuccessStep() {
+  Widget _buildRecorded(BuildContext context) {
+    return _stepShell(
+      topText: _t(context, 'cv_completed_no_payload'),
+      subtitle: null,
+      footer: const SizedBox(height: 8),
+    );
+  }
+
+  Widget _buildSuccessStep(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
           const SizedBox(height: 28),
-          _chatBubble(
-            'رائع محمد! ملفك الشخصي جاهز الآن\nمع راشد مستقبلك في أمان ودايمًا كسبان',
-            width: double.infinity,
-            fontSize: 18,
-          ),
+          _chatBubble(_t(context, 'cv_success'),
+              width: double.infinity, fontSize: 18),
           const SizedBox(height: 12),
           SizedBox(
             height: 280,
-            child: SvgPicture.asset(
-              ImageManages.rashedImage,
-              fit: BoxFit.contain,
-            ),
+            child:
+                SvgPicture.asset(ImageManages.rashedImage, fit: BoxFit.contain),
           ),
           const SizedBox(height: 12),
           _primaryCta(
-            text: 'ابدأ المحاكاة الأولى',
+            text: _t(context, 'cv_start_simulation'),
             onTap: () {
               Navigator.pushNamedAndRemoveUntil(
                 context,
@@ -361,6 +553,77 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _pickFile(BuildContext context) async {
+    final cubit = context.read<CvCubit>();
+    setState(() => _picking = true);
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf'],
+        withData: true,
+      );
+      if (!mounted) return;
+      if (picked == null || picked.files.isEmpty) return;
+      final file = picked.files.single;
+      final bytes = file.bytes;
+      if (bytes == null) {
+        setState(() => _unreadable = true);
+        return;
+      }
+      setState(() => _unreadable = false);
+      await cubit.selectFile(
+        SelectedCvFile(
+          name: file.name,
+          sizeBytes: file.size,
+          bytes: bytes,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  String? _messageFor(BuildContext context, CvState state) {
+    if (_unreadable) return _t(context, 'cv_file_unreadable');
+    if (state is CvFileRejected) {
+      switch (state.problem) {
+        case CvFileProblem.empty:
+          return _t(context, 'cv_file_empty');
+        case CvFileProblem.extension:
+          return _t(context, 'cv_file_extension');
+        case CvFileProblem.tooLarge:
+          return _t(context, 'cv_file_too_large');
+        case CvFileProblem.notPdf:
+          return _t(context, 'cv_file_not_pdf');
+      }
+    }
+    if (state is CvUploadFailed) {
+      if (state.cancelled) return _t(context, 'cv_upload_cancelled');
+      return state.message.isEmpty
+          ? _t(context, 'cv_upload_failed')
+          : state.message;
+    }
+    if (state is CvAnalysisFailed) {
+      switch (state.stop) {
+        case CvAnalysisStop.clientCancelled:
+          return _t(context, 'cv_analysis_cancelled');
+        case CvAnalysisStop.timedOut:
+          return _t(context, 'cv_analysis_timeout');
+        case CvAnalysisStop.failed:
+          return state.message.isEmpty
+              ? _t(context, 'cv_analysis_failed')
+              : state.message;
+      }
+    }
+    if (state is CvAwaitingPersistence) {
+      return state.missingUser
+          ? _t(context, 'cv_missing_user')
+          : _t(context, 'cv_persistence_pending');
+    }
+    if (state is CvStorageReadFailed) return state.message;
+    return null;
   }
 
   Widget _stepShell({
@@ -382,7 +645,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           const SizedBox(height: 12),
           SizedBox(
             height: 210,
-            child: SvgPicture.asset(ImageManages.rashedImage, fit: BoxFit.contain),
+            child:
+                SvgPicture.asset(ImageManages.rashedImage, fit: BoxFit.contain),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 4),
@@ -402,7 +666,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  Widget _chatBubble(String text, {required double width, required double fontSize}) {
+  Widget _chatBubble(String text,
+      {required double width, required double fontSize}) {
     return Container(
       width: width,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -430,35 +695,38 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  Widget _input(TextEditingController controller) {
-    return TextField(
-      controller: controller,
-      textAlign: TextAlign.right,
-      style: AppTypography.regular(fontSize: 17, color: AppColors.primarySet2),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: AppColors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.black10),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.black10),
-        ),
+  Widget _valueBox(String text, Key key) {
+    return Container(
+      key: key,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.black10),
+      ),
+      child: Text(
+        text,
+        style:
+            AppTypography.regular(fontSize: 17, color: AppColors.primarySet2),
       ),
     );
   }
 
-  Widget _primaryCta({required String text, required VoidCallback onTap}) {
+  Widget _primaryCta({
+    Key? key,
+    required String text,
+    required VoidCallback? onTap,
+  }) {
     return GestureDetector(
+      key: key,
       onTap: onTap,
       child: Container(
         width: double.infinity,
         height: 54,
         decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
+          gradient: onTap == null ? null : AppColors.primaryGradient,
+          color: onTap == null ? AppColors.black20 : null,
           borderRadius: BorderRadius.circular(12),
         ),
         alignment: Alignment.center,
@@ -468,5 +736,18 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         ),
       ),
     );
+  }
+
+  String _t(BuildContext context, String key) {
+    final value = AppLocalizations.of(context)?.translate(key) ?? '';
+    return value.isEmpty ? key : value;
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }

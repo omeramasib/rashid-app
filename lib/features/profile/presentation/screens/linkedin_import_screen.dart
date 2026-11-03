@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rashed_app/Presentation/utils/images.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/core/theme/theme.dart';
+import 'package:rashed_app/core/widgets/app_back_button.dart';
 
 class LinkedinImportScreen extends StatefulWidget {
   const LinkedinImportScreen({super.key});
@@ -53,14 +54,7 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
   Widget _buildTopBar() {
     return Row(
       children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: const SizedBox(
-            width: 40,
-            height: 40,
-            child: Icon(Icons.chevron_right, size: 30, color: AppColors.black100),
-          ),
-        ),
+        const AppBackButton(),
         Expanded(
           child: Center(
             child: ShaderMask(
@@ -68,7 +62,8 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
                   AppColors.primaryGradient.createShader(bounds),
               child: Text(
                 'إنشاء حساب جديد',
-                style: AppTypography.regular(fontSize: 20, color: AppColors.white),
+                style:
+                    AppTypography.regular(fontSize: 20, color: AppColors.white),
               ),
             ),
           ),
@@ -126,7 +121,8 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
         Expanded(
           child: Text(
             'أوافق على استيراد بياناتي من LinkedIn لتحسين\nملفي الشخصي',
-            style: AppTypography.regular(fontSize: 17, color: AppColors.fontColor),
+            style:
+                AppTypography.regular(fontSize: 17, color: AppColors.fontColor),
             textAlign: TextAlign.right,
           ),
         ),
@@ -175,7 +171,8 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
               const Spacer(),
               Text(
                 'تسجيل بواسطة لينكد ان',
-                style: AppTypography.regular(fontSize: 17, color: AppColors.white),
+                style:
+                    AppTypography.regular(fontSize: 17, color: AppColors.white),
               ),
               const Spacer(),
               const SizedBox(width: 24),

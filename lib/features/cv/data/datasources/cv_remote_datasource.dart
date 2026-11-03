@@ -1,14 +1,28 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
+
+import '../../../../core/error/exceptions.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/dio_client.dart';
-import '../../../../core/error/exceptions.dart';
-import '../models/cv_model.dart';
 import '../models/cv_analysis_result_model.dart';
+import '../models/cv_model.dart';
 
 abstract class CvRemoteDataSource {
-  Future<CvModel> uploadCv(String filePath, String fileName);
-  Future<CvAnalysisResultModel> analyzeCv(String cvId);
+  Future<CvModel> uploadCv({
+    required Uint8List bytes,
+    required String fileName,
+    required CancelToken cancelToken,
+    required void Function(int sent, int total) onProgress,
+  });
+
+  Future<CvAnalysisResultModel> analyzeCv(
+    String cvId, {
+    required CancelToken cancelToken,
+  });
+
   Future<void> updateSkills(List<String> skills);
+
   Future<void> deleteSkill(String skill);
 }
 
@@ -20,35 +34,69 @@ class CvRemoteDataSourceImpl implements CvRemoteDataSource {
   Dio get _dio => client.dio;
 
   @override
-  Future<CvModel> uploadCv(String filePath, String fileName) async {
+  Future<CvModel> uploadCv({
+    required Uint8List bytes,
+    required String fileName,
+    required CancelToken cancelToken,
+    required void Function(int sent, int total) onProgress,
+  }) async {
     try {
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(filePath, filename: fileName),
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: fileName,
+          contentType: DioMediaType('application', 'pdf'),
+        ),
       });
-      final response = await _dio.post(ApiEndpoints.cvUpload, data: formData);
-      return CvModel.fromJson(response.data as Map<String, dynamic>);
+      final response = await _dio.post(
+        ApiEndpoints.cvUpload,
+        data: formData,
+        cancelToken: cancelToken,
+        onSendProgress: onProgress,
+        options: Options(
+          contentType: Headers.multipartFormDataContentType,
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+      );
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw ServerException('Unexpected upload response');
+      }
+      return CvModel.fromJson(data);
     } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
+      throw _exception(e);
+    } on AppException {
+      rethrow;
     } catch (e) {
       throw ServerException(e.toString());
     }
   }
 
   @override
-  Future<CvAnalysisResultModel> analyzeCv(String cvId) async {
+  Future<CvAnalysisResultModel> analyzeCv(
+    String cvId, {
+    required CancelToken cancelToken,
+  }) async {
     try {
       final response = await _dio.post(
         ApiEndpoints.cvAnalyze,
         data: {'cv_id': cvId},
+        cancelToken: cancelToken,
+        options: Options(
+          contentType: Headers.jsonContentType,
+          receiveTimeout: const Duration(seconds: 150),
+        ),
       );
-      return CvAnalysisResultModel.fromJson(
-          response.data as Map<String, dynamic>);
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw ServerException('Unexpected analysis response');
+      }
+      return CvAnalysisResultModel.fromJson(data);
     } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
+      throw _exception(e);
+    } on AppException {
+      rethrow;
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -62,9 +110,7 @@ class CvRemoteDataSourceImpl implements CvRemoteDataSource {
         data: {'skills': skills},
       );
     } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
+      throw _exception(e);
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -75,15 +121,21 @@ class CvRemoteDataSourceImpl implements CvRemoteDataSource {
     try {
       await _dio.delete(
         ApiEndpoints.cvDeleteSkill,
-        // The implementation plan implies data payload: {'skill': skill}
         data: {'skill': skill},
       );
     } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
+      throw _exception(e);
     } catch (e) {
       throw ServerException(e.toString());
     }
+  }
+
+  AppException _exception(DioException error) {
+    if (error.type == DioExceptionType.cancel) {
+      return RequestCancelledException('Request cancelled');
+    }
+    final mapped = error.error;
+    if (mapped is AppException) return mapped;
+    return ServerException(error.message ?? 'Unknown error');
   }
 }

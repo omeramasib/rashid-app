@@ -1,7 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rashed_app/app/routes_name.dart';
+import 'package:rashed_app/core/di/injection_container.dart' as di;
+import 'package:rashed_app/features/cv/presentation/cubit/cv_cubit.dart';
 import 'package:rashed_app/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:rashed_app/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:rashed_app/features/auth/presentation/screens/password_reset_success_screen.dart';
@@ -108,7 +111,10 @@ class Routes {
       case RoutesName.completeProfile:
         {
           return CupertinoPageRoute(
-            builder: (_) => const CompleteProfileScreen(),
+            builder: (_) => BlocProvider(
+              create: (_) => di.sl<CvCubit>(),
+              child: const CompleteProfileScreen(),
+            ),
             settings: routeSettings,
           );
         }

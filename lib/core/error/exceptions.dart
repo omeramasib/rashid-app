@@ -49,6 +49,38 @@ class NetworkException extends AppException {
   NetworkException(super.message);
 }
 
+class RequestTimeoutException extends NetworkException {
+  RequestTimeoutException(super.message);
+}
+
+class RequestCancelledException extends AppException {
+  RequestCancelledException(super.message);
+}
+
+class ConflictException extends AppException {
+  ConflictException(super.message);
+}
+
+class PayloadTooLargeException extends AppException {
+  PayloadTooLargeException(super.message);
+}
+
+class ValidationException extends AppException {
+  ValidationException(super.message);
+}
+
+class RateLimitException extends AppException {
+  RateLimitException(super.message);
+}
+
+class ServiceUnavailableException extends AppException {
+  ServiceUnavailableException(super.message);
+}
+
+class GatewayTimeoutException extends AppException {
+  GatewayTimeoutException(super.message);
+}
+
 class UpstreamException extends AppException {
   UpstreamException(super.message);
 }

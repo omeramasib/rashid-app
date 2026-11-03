@@ -26,6 +26,7 @@ import '../../features/linkedin/domain/repositories/linkedin_repository.dart';
 import '../../features/linkedin/domain/usecases/connect_linkedin_usecase.dart';
 import '../../features/linkedin/domain/usecases/disconnect_linkedin_usecase.dart';
 import '../../features/linkedin/presentation/cubit/linkedin_cubit.dart';
+import '../../features/cv/data/datasources/cv_local_datasource.dart';
 import '../../features/cv/data/datasources/cv_remote_datasource.dart';
 import '../../features/cv/data/repositories/cv_repository_impl.dart';
 import '../../features/cv/domain/repositories/cv_repository.dart';
@@ -144,6 +145,8 @@ Future<void> init() async {
       analyzeCvUseCase: sl(),
       updateSkillsUseCase: sl(),
       deleteSkillUseCase: sl(),
+      localDataSource: sl(),
+      secureStorage: sl(),
     ),
   );
 
@@ -161,6 +164,9 @@ Future<void> init() async {
   // Data sources
   sl.registerLazySingleton<CvRemoteDataSource>(
     () => CvRemoteDataSourceImpl(client: sl()),
+  );
+  sl.registerLazySingleton(
+    () => CvLocalDataSource(storage: sl()),
   );
 
   //! Features - Interview

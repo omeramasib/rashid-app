@@ -5,7 +5,8 @@ class ApiEndpoints {
     const configuredUrl = String.fromEnvironment('API_BASE_URL');
     if (configuredUrl.isNotEmpty) return configuredUrl;
     return !kIsWeb && defaultTargetPlatform == TargetPlatform.android
-        ? 'http://10.0.2.2:8000'
+        // ? 'http://10.0.2.2:8000'
+        ? 'http://192.168.8.8:8000'
         : 'http://localhost:8000';
   }
 

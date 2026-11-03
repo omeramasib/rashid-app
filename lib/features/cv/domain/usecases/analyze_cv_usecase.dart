@@ -10,6 +10,8 @@ class AnalyzeCvUseCase implements UseCase<CvAnalysisResult, AnalyzeCvParams> {
 
   AnalyzeCvUseCase(this.repository);
 
+  void cancel() => repository.cancelAnalysis();
+
   @override
   Future<Either<Failure, CvAnalysisResult>> call(AnalyzeCvParams params) async {
     return await repository.analyzeCv(params.cvId);
