@@ -1,4 +1,5 @@
 import '../../domain/entities/interview_start_response.dart';
+import 'interview_json.dart';
 import 'interview_question_model.dart';
 
 class InterviewStartResponseModel extends InterviewStartResponse {
@@ -6,26 +7,26 @@ class InterviewStartResponseModel extends InterviewStartResponse {
     required super.simulationId,
     required super.interviewSettingId,
     required super.questions,
+    super.status,
+    super.reportStatus,
   });
 
   factory InterviewStartResponseModel.fromJson(Map<String, dynamic> json) {
+    final rawQuestions = json['questions'];
+    final questions = rawQuestions is List
+        ? rawQuestions
+            .whereType<Map>()
+            .map((item) => InterviewQuestionModel.fromJson(
+                  Map<String, dynamic>.from(item),
+                ))
+            .toList()
+        : <InterviewQuestionModel>[];
     return InterviewStartResponseModel(
-      simulationId: json['simulation_id'] ?? '',
-      interviewSettingId: json['interview_setting_id'] ?? '',
-      questions: (json['questions'] as List<dynamic>?)
-              ?.map((e) =>
-                  InterviewQuestionModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      simulationId: requiredString(json['simulation_id']),
+      interviewSettingId: requiredString(json['interview_setting_id']),
+      status: optionalString(json['status']),
+      reportStatus: optionalString(json['report_status']),
+      questions: questions,
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'simulation_id': simulationId,
-      'interview_setting_id': interviewSettingId,
-      'questions':
-          questions.map((q) => (q as InterviewQuestionModel).toJson()).toList(),
-    };
   }
 }

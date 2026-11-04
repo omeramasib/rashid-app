@@ -1,51 +1,74 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rashed_app/Presentation/utils/images.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
+import 'package:rashed_app/core/error/failures.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 import 'package:rashed_app/core/widgets/app_back_button.dart';
 import 'package:rashed_app/features/cv/domain/cv_file_rules.dart';
 import 'package:rashed_app/features/cv/domain/entities/selected_cv_file.dart';
 import 'package:rashed_app/features/cv/presentation/cubit/cv_cubit.dart';
+import 'package:rashed_app/features/simulation/domain/interview_options.dart';
+import 'package:rashed_app/features/simulation/presentation/interview_navigation.dart';
 
-enum _CvView { upload, processing, results, recorded, success }
-
-class CompleteProfileScreen extends StatefulWidget {
-  const CompleteProfileScreen({super.key});
-
-  @override
-  State<CompleteProfileScreen> createState() => _CompleteProfileScreenState();
+enum _CvView {
+  upload,
+  processing,
+  results,
+  recorded,
+  success,
+  loading,
+  loadFailed,
+  inProgress,
 }
 
-class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
-  bool _showSuccess = false;
-  bool _picking = false;
-  bool _unreadable = false;
-  String _fullName = '';
-  List<String> _titles = const [];
-  List<String> _skills = const [];
-  String? _appliedCvId;
-  final TextEditingController _newSkillController = TextEditingController();
+class CompleteProfileScreen extends HookWidget {
+  const CompleteProfileScreen({super.key, this.resumeInterview});
 
-  @override
-  void initState() {
-    super.initState();
-    context.read<CvCubit>().load();
-  }
-
-  @override
-  void dispose() {
-    _newSkillController.dispose();
-    super.dispose();
-  }
+  /// Set when interview simulation sent the user here to finish a CV.
+  final InterviewStartMode? resumeInterview;
 
   @override
   Widget build(BuildContext context) {
+    final newSkill = useTextEditingController();
+    final picking = useState(false);
+    final unreadable = useState(false);
+    final cubit = context.read<CvCubit>();
+    final resumed = useRef(false);
+    useEffect(() {
+      cubit.load();
+      return null;
+    }, const []);
+
     return BlocConsumer<CvCubit, CvState>(
-      listener: _onState,
+      listener: (context, state) {
+        if (!context.mounted || resumed.value) return;
+        if (state is CvSessionExpired) {
+          resumed.value = true;
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            RoutesName.login,
+            (route) => false,
+          );
+          return;
+        }
+        final mode = resumeInterview;
+        if (mode == null || state is! CvAnalyzed || !state.profileConfirmed) {
+          return;
+        }
+        final route = ModalRoute.of(context);
+        if (route != null && !route.isCurrent) return;
+        resumed.value = true;
+        Navigator.pushReplacementNamed(
+          context,
+          RoutesName.simulationSetup,
+          arguments: InterviewStartMode.byJob,
+        );
+      },
       builder: (context, state) {
         final phase = _phase(state);
         return Scaffold(
@@ -55,12 +78,19 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               children: [
                 _buildTopBar(context, phase),
                 if (phase != _CvView.success && phase != _CvView.recorded)
-                  _buildStepper(context, phase),
+                  _buildStepper(context, state, phase),
                 const SizedBox(height: 8),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: _buildBody(context, state, phase),
+                    child: _buildBody(
+                      context,
+                      state,
+                      phase,
+                      picking: picking,
+                      unreadable: unreadable,
+                      newSkill: newSkill,
+                    ),
                   ),
                 ),
               ],
@@ -71,56 +101,68 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  void _onState(BuildContext context, CvState state) {
-    if (state is CvSessionExpired) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        RoutesName.login,
-        (route) => false,
-      );
-      return;
+  Future<void> _submitNewSkill(
+    BuildContext context,
+    TextEditingController input,
+  ) async {
+    final saved = await context.read<CvCubit>().addSkill(input.text);
+    if (!context.mounted || !saved) return;
+    input.clear();
+  }
+
+  String _skillFailureText(BuildContext context, CvError state) {
+    final failure = state.failure;
+    if (failure is RequestTimeoutFailure) {
+      return _t(context, 'cv_profile_timeout');
     }
-    if (state is CvAnalyzed && _appliedCvId != state.cvId) {
-      _appliedCvId = state.cvId;
-      _fullName = state.result.fullName;
-      _titles = List<String>.of(state.result.jobTitles);
-      _skills = List<String>.of(state.result.skills);
-    }
-    if (state is SkillsUpdated) {
-      _showSuccess = true;
-    } else if (state is CvUploading || state is CvFileSelected) {
-      _showSuccess = false;
-    }
+    if (failure is NetworkFailure) return _t(context, 'cv_profile_offline');
+    return _t(context, 'cv_skills_save_failed');
   }
 
   _CvView _phase(CvState state) {
-    if (_showSuccess) return _CvView.success;
+    if (state is SkillsUpdated) return _CvView.success;
+    if (state is CvProfileLoading) return _CvView.loading;
+    if (state is CvProfileLoadFailed) return _CvView.loadFailed;
+    if (state is CvAnalysisInProgress) return _CvView.inProgress;
     if (state is CvUploading ||
         state is CvSavingUpload ||
         state is CvAnalyzing) {
       return _CvView.processing;
     }
     if (state is CvAnalysisRecorded) return _CvView.recorded;
-    if (state is CvAnalyzed ||
-        ((state is SkillsUpdating || state is CvError) &&
-            _appliedCvId != null)) {
-      return _CvView.results;
-    }
+    if (_profileResults(state) != null) return _CvView.results;
     return _CvView.upload;
   }
 
-  Widget _buildBody(BuildContext context, CvState state, _CvView phase) {
+  bool _skillInputEnabled(CvState state) {
+    return state is! SkillsUpdating && state is! SkillDeleting;
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    CvState state,
+    _CvView phase, {
+    required ValueNotifier<bool> picking,
+    required ValueNotifier<bool> unreadable,
+    required TextEditingController newSkill,
+  }) {
     switch (phase) {
+      case _CvView.loading:
+        return _buildLoading(context);
+      case _CvView.loadFailed:
+        return _buildLoadFailed(context, state);
+      case _CvView.inProgress:
+        return _buildInProgress(context);
       case _CvView.processing:
         return _buildProcessing(context, state);
       case _CvView.results:
-        return _buildResultStep(context, state);
+        return _buildResultStep(context, state, newSkill);
       case _CvView.recorded:
         return _buildRecorded(context);
       case _CvView.success:
         return _buildSuccessStep(context);
       case _CvView.upload:
-        return _buildUploadStep(context, state);
+        return _buildUploadStep(context, state, picking, unreadable);
     }
   }
 
@@ -154,12 +196,17 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  Widget _buildStepper(BuildContext context, _CvView phase) {
-    final active = phase == _CvView.processing
+  Widget _buildStepper(BuildContext context, CvState state, _CvView phase) {
+    final waiting = state is CvPendingAnalysis ||
+        state is CvUploadSaved ||
+        state is CvAnalysisFailed;
+    final active = phase == _CvView.processing || phase == _CvView.inProgress
         ? 1
         : phase == _CvView.results
             ? 2
-            : 0;
+            : waiting
+                ? 1
+                : 0;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       padding: const EdgeInsets.all(10),
@@ -213,20 +260,38 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  Widget _buildUploadStep(BuildContext context, CvState state) {
+  Widget _buildUploadStep(
+    BuildContext context,
+    CvState state,
+    ValueNotifier<bool> picking,
+    ValueNotifier<bool> unreadable,
+  ) {
     final cubit = context.read<CvCubit>();
     final selected = state is CvFileSelected ? state.file : null;
-    final canStart = selected != null || state is CvUploadSaved;
+    final canStart = selected != null ||
+        state is CvUploadSaved ||
+        state is CvPendingAnalysis;
+    final topText = state is CvPendingAnalysis
+        ? _t(context, 'cv_pending')
+        : state is CvUploadSaved
+            ? _t(context, 'cv_ready_existing')
+            : state is CvAnalysisFailed
+                ? state.stop == CvAnalysisStop.timedOut
+                    ? _t(context, 'cv_analysis_timeout')
+                    : _t(context, 'cv_profile_failed')
+                : state is CvReady
+                    ? _t(context, 'cv_profile_empty')
+                    : _t(context, 'cv_intro');
     return _stepShell(
-      topText: state is CvUploadSaved
-          ? _t(context, 'cv_ready_existing')
-          : _t(context, 'cv_intro'),
-      subtitle: _t(context, 'cv_pdf_only'),
+      topText: topText,
+      subtitle: state is CvReady
+          ? _t(context, 'cv_intro')
+          : _t(context, 'cv_pdf_only'),
       footer: Column(
         children: [
-          if (_messageFor(context, state) != null) ...[
+          if (_messageFor(context, state, unreadable.value) != null) ...[
             Text(
-              _messageFor(context, state)!,
+              _messageFor(context, state, unreadable.value)!,
               key: const Key('cv_status_message'),
               textAlign: TextAlign.center,
               style: AppTypography.regular(
@@ -249,7 +314,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           ],
           GestureDetector(
             key: const Key('cv_pick_file'),
-            onTap: _picking ? null : () => _pickFile(context),
+            onTap: picking.value
+                ? null
+                : () => _pickFile(context, picking, unreadable),
             child: Container(
               width: double.infinity,
               height: 96,
@@ -267,7 +334,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   Text(
                     selected == null
                         ? _t(context, 'cv_pick')
-                        : '${selected.name} · ${_formatSize(selected.sizeBytes)}',
+                        : '${selected.name} · ${_formatSize(context, selected.sizeBytes)}',
                     key: const Key('cv_selected_file'),
                     textAlign: TextAlign.center,
                     style: AppTypography.regular(
@@ -280,11 +347,29 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             ),
           ),
           const SizedBox(height: 20),
+          if (state is CvReady) ...[
+            Text(
+              _t(context, 'cv_pdf_only'),
+              textAlign: TextAlign.center,
+              style: AppTypography.regular(
+                fontSize: 13,
+                color: AppColors.hintColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (state is CvAwaitingPersistence)
             _primaryCta(
               key: const Key('cv_retry_persistence'),
               text: _t(context, 'cv_retry_save'),
               onTap: cubit.retryPersistence,
+            )
+          else if (state is CvAnalysisFailed &&
+              state.stop == CvAnalysisStop.timedOut)
+            _primaryCta(
+              key: const Key('cv_refresh_status'),
+              text: _t(context, 'cv_refresh'),
+              onTap: cubit.refreshProfile,
             )
           else if (state is CvAnalysisFailed)
             _primaryCta(
@@ -298,6 +383,71 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               text: _t(context, 'cv_start'),
               onTap: canStart ? cubit.startAnalysis : null,
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoading(BuildContext context) {
+    return _stepShell(
+      topText: _t(context, 'cv_profile_loading'),
+      subtitle: null,
+      footer: const SizedBox(
+        key: Key('cv_profile_loading'),
+        width: 72,
+        height: 72,
+        child: CircularProgressIndicator(strokeWidth: 8),
+      ),
+    );
+  }
+
+  Widget _buildLoadFailed(BuildContext context, CvState state) {
+    final failure = state is CvProfileLoadFailed ? state.failure : null;
+    return _stepShell(
+      topText: _t(context, 'cv_profile_load_failed'),
+      subtitle: null,
+      footer: Column(
+        children: [
+          Text(
+            failure == null
+                ? _t(context, 'cv_profile_load_failed')
+                : _loadFailureText(context, failure),
+            key: const Key('cv_status_message'),
+            textAlign: TextAlign.center,
+            style: AppTypography.regular(
+              fontSize: 14,
+              color: AppColors.error,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _primaryCta(
+            key: const Key('cv_profile_retry'),
+            text: _t(context, 'cv_profile_retry'),
+            onTap: context.read<CvCubit>().load,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInProgress(BuildContext context) {
+    return _stepShell(
+      topText: _t(context, 'cv_in_progress'),
+      subtitle: null,
+      footer: Column(
+        children: [
+          const SizedBox(
+            key: Key('cv_in_progress'),
+            width: 72,
+            height: 72,
+            child: CircularProgressIndicator(strokeWidth: 8),
+          ),
+          const SizedBox(height: 20),
+          _primaryCta(
+            key: const Key('cv_refresh_status'),
+            text: _t(context, 'cv_refresh'),
+            onTap: context.read<CvCubit>().refreshProfile,
+          ),
         ],
       ),
     );
@@ -353,9 +503,19 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  Widget _buildResultStep(BuildContext context, CvState state) {
-    final name = _fullName.trim().isEmpty ? _t(context, 'cv_none') : _fullName;
-    final titles = _titles.where((title) => title.trim().isNotEmpty).toList();
+  Widget _buildResultStep(
+    BuildContext context,
+    CvState state,
+    TextEditingController newSkill,
+  ) {
+    final profile = _profileResults(state)!;
+    final name = profile.fullName.trim().isEmpty
+        ? _t(context, 'cv_none')
+        : profile.fullName;
+    final titles =
+        profile.jobTitles.where((title) => title.trim().isNotEmpty).toList();
+    final skills = profile.skills;
+    final canEditSkills = _skillInputEnabled(state);
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 18),
@@ -367,7 +527,19 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (state is CvAnalyzed && !state.statusPersisted) ...[
+          if (state is! CvAnalyzed || profile.statusPersisted) ...[
+            Text(
+              _t(context, 'cv_profile_completed'),
+              key: const Key('cv_profile_completed'),
+              textAlign: TextAlign.center,
+              style: AppTypography.regular(
+                fontSize: 14,
+                color: AppColors.fontColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (state is CvAnalyzed && !profile.statusPersisted) ...[
             Text(
               _t(context, 'cv_persistence_pending'),
               textAlign: TextAlign.center,
@@ -422,8 +594,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    for (final skill in _skills)
-                      _skillChip(skill, constraints.maxWidth),
+                    for (final skill in skills)
+                      _skillChip(context, skill, constraints.maxWidth, state),
                   ],
                 );
               },
@@ -432,17 +604,31 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           const SizedBox(height: 10),
           Row(
             children: [
-              const Icon(
-                Icons.add_circle_outline_rounded,
-                size: 26,
-                color: AppColors.primarySet2,
+              Semantics(
+                button: true,
+                label: _t(context, 'cv_add_skill'),
+                child: GestureDetector(
+                  key: const Key('cv_add_skill_button'),
+                  onTap: canEditSkills
+                      ? () => _submitNewSkill(context, newSkill)
+                      : null,
+                  child: Icon(
+                    Icons.add_circle_outline_rounded,
+                    size: 26,
+                    color: canEditSkills
+                        ? AppColors.primarySet2
+                        : AppColors.hintColor,
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
                   key: const Key('cv_new_skill'),
-                  controller: _newSkillController,
+                  controller: newSkill,
+                  enabled: canEditSkills,
                   textAlign: TextAlign.start,
+                  textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: _t(context, 'cv_add_skill'),
@@ -452,22 +638,28 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     ),
                     border: InputBorder.none,
                   ),
-                  onSubmitted: (value) {
-                    final trimmed = value.trim();
-                    if (trimmed.isEmpty || _skills.contains(trimmed)) return;
-                    setState(() {
-                      _skills = [..._skills, trimmed];
-                      _newSkillController.clear();
-                    });
-                  },
+                  onSubmitted: canEditSkills
+                      ? (_) => _submitNewSkill(context, newSkill)
+                      : null,
                 ),
               ),
             ],
           ),
-          if (state is CvError) ...[
+          if (profile.skillAdded && state is! CvError) ...[
             const SizedBox(height: 8),
             Text(
-              state.message,
+              _t(context, 'cv_skill_added'),
+              key: const Key('cv_skill_added_message'),
+              style: AppTypography.regular(
+                fontSize: 13,
+                color: AppColors.success,
+              ),
+            ),
+          ],
+          if (profile.error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _skillFailureText(context, profile.error!),
               key: const Key('cv_status_message'),
               style: AppTypography.regular(
                 fontSize: 13,
@@ -479,9 +671,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           _primaryCta(
             key: const Key('cv_save_skills'),
             text: _t(context, 'cv_save'),
-            onTap: state is SkillsUpdating
-                ? null
-                : () => context.read<CvCubit>().updateSkills(List.of(_skills)),
+            onTap: canEditSkills
+                ? () => context
+                    .read<CvCubit>()
+                    .updateSkills(List<String>.of(skills))
+                : null,
           ),
         ],
       ),
@@ -513,13 +707,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           const SizedBox(height: 12),
           _primaryCta(
             text: _t(context, 'cv_start_simulation'),
-            onTap: () {
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                RoutesName.home,
-                (route) => false,
-              );
-            },
+            onTap: () => openInterviewSimulation(
+              context,
+              InterviewStartMode.byJob,
+            ),
           ),
           const SizedBox(height: 40),
         ],
@@ -527,24 +718,28 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  Future<void> _pickFile(BuildContext context) async {
+  Future<void> _pickFile(
+    BuildContext context,
+    ValueNotifier<bool> picking,
+    ValueNotifier<bool> unreadable,
+  ) async {
     final cubit = context.read<CvCubit>();
-    setState(() => _picking = true);
+    picking.value = true;
     try {
       final picked = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['pdf'],
         withData: true,
       );
-      if (!mounted) return;
+      if (!context.mounted) return;
       if (picked == null || picked.files.isEmpty) return;
       final file = picked.files.single;
       final bytes = file.bytes;
       if (bytes == null) {
-        setState(() => _unreadable = true);
+        unreadable.value = true;
         return;
       }
-      setState(() => _unreadable = false);
+      unreadable.value = false;
       await cubit.selectFile(
         SelectedCvFile(
           name: file.name,
@@ -553,12 +748,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         ),
       );
     } finally {
-      if (mounted) setState(() => _picking = false);
+      if (context.mounted) picking.value = false;
     }
   }
 
-  String? _messageFor(BuildContext context, CvState state) {
-    if (_unreadable) return _t(context, 'cv_file_unreadable');
+  String? _messageFor(BuildContext context, CvState state, bool unreadable) {
+    if (unreadable) return _t(context, 'cv_file_unreadable');
     if (state is CvFileRejected) {
       switch (state.problem) {
         case CvFileProblem.empty:
@@ -575,18 +770,18 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       if (state.cancelled) return _t(context, 'cv_upload_cancelled');
       return state.message.isEmpty
           ? _t(context, 'cv_upload_failed')
-          : state.message;
+          : AppLocalizations.message(context, state.message);
     }
     if (state is CvAnalysisFailed) {
       switch (state.stop) {
         case CvAnalysisStop.clientCancelled:
           return _t(context, 'cv_analysis_cancelled');
         case CvAnalysisStop.timedOut:
-          return _t(context, 'cv_analysis_timeout');
+          return null;
         case CvAnalysisStop.failed:
           return state.message.isEmpty
-              ? _t(context, 'cv_analysis_failed')
-              : state.message;
+              ? null
+              : AppLocalizations.message(context, state.message);
       }
     }
     if (state is CvAwaitingPersistence) {
@@ -594,7 +789,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           ? _t(context, 'cv_missing_user')
           : _t(context, 'cv_persistence_pending');
     }
-    if (state is CvStorageReadFailed) return state.message;
+    if (state is CvStorageReadFailed) {
+      return AppLocalizations.message(context, state.message);
+    }
     return null;
   }
 
@@ -667,7 +864,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  Widget _skillChip(String skill, double maxWidth) {
+  Widget _skillChip(
+    BuildContext context,
+    String skill,
+    double maxWidth,
+    CvState state,
+  ) {
     return Container(
       key: Key('cv_skill_$skill'),
       constraints: BoxConstraints(maxWidth: maxWidth),
@@ -690,7 +892,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 padding: const EdgeInsetsDirectional.only(end: 6),
                 child: GestureDetector(
                   key: Key('cv_remove_skill_$skill'),
-                  onTap: () => setState(() => _skills.remove(skill)),
+                  onTap: _skillInputEnabled(state)
+                      ? () => context.read<CvCubit>().omitSkill(skill)
+                      : null,
                   child: const Icon(
                     Icons.close,
                     size: 14,
@@ -771,16 +975,86 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
+  String _loadFailureText(BuildContext context, Failure failure) {
+    if (failure is RequestTimeoutFailure) {
+      return _t(context, 'cv_profile_timeout');
+    }
+    if (failure is NetworkFailure) return _t(context, 'cv_profile_offline');
+    if (failure.message.trim().isEmpty) {
+      return _t(context, 'cv_profile_load_failed');
+    }
+    return AppLocalizations.message(context, failure.message);
+  }
+
   String _t(BuildContext context, String key) {
     final value = AppLocalizations.of(context)?.translate(key) ?? '';
     return value.isEmpty ? key : value;
   }
 
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
+  String _formatSize(BuildContext context, int bytes) {
+    if (bytes < 1024) return '$bytes ${_t(context, 'size_b')}';
     if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+      return '${(bytes / 1024).toStringAsFixed(1)} ${_t(context, 'size_kb')}';
     }
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} ${_t(context, 'size_mb')}';
   }
+}
+
+class _ProfileResults {
+  final String fullName;
+  final List<String> jobTitles;
+  final List<String> skills;
+  final bool statusPersisted;
+  final bool skillAdded;
+  final CvError? error;
+
+  const _ProfileResults({
+    required this.fullName,
+    required this.jobTitles,
+    required this.skills,
+    required this.statusPersisted,
+    required this.skillAdded,
+    this.error,
+  });
+}
+
+_ProfileResults? _profileResults(CvState state) {
+  if (state is CvAnalyzed) {
+    return _ProfileResults(
+      fullName: state.result.fullName,
+      jobTitles: state.result.jobTitles,
+      skills: state.skills,
+      statusPersisted: state.statusPersisted,
+      skillAdded: state.skillAdded,
+    );
+  }
+  if (state is SkillsUpdating && state.cvId != null && state.result != null) {
+    return _ProfileResults(
+      fullName: state.result!.fullName,
+      jobTitles: state.result!.jobTitles,
+      skills: state.skills,
+      statusPersisted: state.statusPersisted,
+      skillAdded: false,
+    );
+  }
+  if (state is SkillDeleting && state.cvId != null && state.result != null) {
+    return _ProfileResults(
+      fullName: state.result!.fullName,
+      jobTitles: state.result!.jobTitles,
+      skills: state.skills,
+      statusPersisted: state.statusPersisted,
+      skillAdded: false,
+    );
+  }
+  if (state is CvError && state.cvId != null && state.result != null) {
+    return _ProfileResults(
+      fullName: state.result!.fullName,
+      jobTitles: state.result!.jobTitles,
+      skills: state.skills,
+      statusPersisted: state.statusPersisted,
+      skillAdded: false,
+      error: state,
+    );
+  }
+  return null;
 }

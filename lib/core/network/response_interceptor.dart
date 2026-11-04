@@ -12,8 +12,10 @@ class ResponseInterceptor extends Interceptor {
     // Only unwrap when the envelope shape is present.
     if (body is Map<String, dynamic> && body.containsKey('status')) {
       if (body['status'] == 'success') {
-        // Replace response.data with just the inner "data" field
-        response.data = body['data'] ?? body;
+        // A present null `data` must stay null. `data ?? body` would hide
+        // "no CV" behind the envelope. Responses that omit `data` keep the
+        // envelope so callers can still read `status`.
+        response.data = body.containsKey('data') ? body['data'] : body;
         return handler.next(response);
       } else {
         // status == 'error' / 'fail' returned as HTTP 200 — treat as error

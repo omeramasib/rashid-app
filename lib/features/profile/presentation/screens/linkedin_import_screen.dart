@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rashed_app/Presentation/utils/images.dart';
 import 'package:rashed_app/app/routes_name.dart';
+import 'package:rashed_app/app_localizations.dart';
+import 'package:rashed_app/core/localization/app_text_direction.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 import 'package:rashed_app/core/widgets/app_back_button.dart';
 
-class LinkedinImportScreen extends StatefulWidget {
+class LinkedinImportScreen extends HookWidget {
   const LinkedinImportScreen({super.key});
 
   @override
-  State<LinkedinImportScreen> createState() => _LinkedinImportScreenState();
-}
-
-class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
-  bool _agreed = false;
-
-  @override
   Widget build(BuildContext context) {
+    final agreed = useState(false);
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: AppTextDirection.of(context),
       child: Scaffold(
         backgroundColor: AppColors.white,
         body: SafeArea(
@@ -27,9 +24,9 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 10),
-                _buildTopBar(),
+                _buildTopBar(context),
                 const SizedBox(height: 28),
-                _buildChatBubble(),
+                _buildChatBubble(context),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 320,
@@ -39,9 +36,9 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
                   ),
                 ),
                 const Spacer(),
-                _buildConsentRow(),
+                _buildConsentRow(context, agreed),
                 const SizedBox(height: 18),
-                _buildLinkedinButton(),
+                _buildLinkedinButton(context, agreed.value),
                 const SizedBox(height: 30),
               ],
             ),
@@ -51,7 +48,7 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(BuildContext context) {
     return Row(
       children: [
         const AppBackButton(),
@@ -61,7 +58,7 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
               shaderCallback: (bounds) =>
                   AppColors.primaryGradient.createShader(bounds),
               child: Text(
-                'إنشاء حساب جديد',
+                AppLocalizations.tr(context, 'linkedin_import_title'),
                 style:
                     AppTypography.regular(fontSize: 20, color: AppColors.white),
               ),
@@ -73,7 +70,7 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
     );
   }
 
-  Widget _buildChatBubble() {
+  Widget _buildChatBubble(BuildContext context) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -86,7 +83,7 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
             border: Border.all(color: AppColors.black10),
           ),
           child: Text(
-            'مرحبًا! هل ترغب بأن أستورد معلومات\nمهاراتك من لينكد ان؟ هذا سيساعدني في\nتجهيز ملفك الشخصي بشكل أفضل!',
+            AppLocalizations.tr(context, 'linkedin_import_greeting'),
             textAlign: TextAlign.center,
             style: AppTypography.regular(
               fontSize: 17,
@@ -99,20 +96,20 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
     );
   }
 
-  Widget _buildConsentRow() {
+  Widget _buildConsentRow(BuildContext context, ValueNotifier<bool> agreed) {
     return Row(
       children: [
         GestureDetector(
-          onTap: () => setState(() => _agreed = !_agreed),
+          onTap: () => agreed.value = !agreed.value,
           child: Container(
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: _agreed ? AppColors.primarySet2 : AppColors.white,
+              color: agreed.value ? AppColors.primarySet2 : AppColors.white,
               borderRadius: BorderRadius.circular(9),
               border: Border.all(color: AppColors.black20),
             ),
-            child: _agreed
+            child: agreed.value
                 ? const Icon(Icons.check, color: AppColors.white, size: 18)
                 : null,
           ),
@@ -120,23 +117,23 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            'أوافق على استيراد بياناتي من LinkedIn لتحسين\nملفي الشخصي',
+            AppLocalizations.tr(context, 'linkedin_import_consent'),
             style:
                 AppTypography.regular(fontSize: 17, color: AppColors.fontColor),
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.start,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildLinkedinButton() {
+  Widget _buildLinkedinButton(BuildContext context, bool agreed) {
     return GestureDetector(
       onTap: () {
         Navigator.pushReplacementNamed(context, RoutesName.completeProfile);
       },
       child: Opacity(
-        opacity: _agreed ? 1 : 0.75,
+        opacity: agreed ? 1 : 0.75,
         child: Container(
           width: double.infinity,
           height: 56,
@@ -170,7 +167,7 @@ class _LinkedinImportScreenState extends State<LinkedinImportScreen> {
               ),
               const Spacer(),
               Text(
-                'تسجيل بواسطة لينكد ان',
+                AppLocalizations.tr(context, 'linkedin_import_button'),
                 style:
                     AppTypography.regular(fontSize: 17, color: AppColors.white),
               ),

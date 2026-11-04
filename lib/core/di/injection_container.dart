@@ -1,4 +1,6 @@
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../localization/localization_bloc.dart';
 import '../network/dio_client.dart';
 import '../auth/clerk_auth_service.dart';
 import '../auth/clerk_config.dart';
@@ -32,6 +34,7 @@ import '../../features/cv/data/repositories/cv_repository_impl.dart';
 import '../../features/cv/domain/repositories/cv_repository.dart';
 import '../../features/cv/domain/usecases/analyze_cv_usecase.dart';
 import '../../features/cv/domain/usecases/delete_skill_usecase.dart';
+import '../../features/cv/domain/usecases/get_my_cv_profile_usecase.dart';
 import '../../features/cv/domain/usecases/update_skills_usecase.dart';
 import '../../features/cv/domain/usecases/upload_cv_usecase.dart';
 import '../../features/cv/presentation/cubit/cv_cubit.dart';
@@ -39,12 +42,14 @@ import '../../features/simulation/data/datasources/interview_remote_datasource.d
 import '../../features/simulation/data/repositories/interview_repository_impl.dart';
 import '../../features/simulation/domain/repositories/interview_repository.dart';
 import '../../features/simulation/domain/usecases/finish_interview_usecase.dart';
+import '../../features/simulation/domain/usecases/retry_interview_generation_usecase.dart';
 import '../../features/simulation/domain/usecases/get_interview_report_usecase.dart';
 import '../../features/simulation/domain/usecases/get_simulations_history_usecase.dart';
 import '../../features/simulation/domain/usecases/start_interview_by_job_description_usecase.dart';
 import '../../features/simulation/domain/usecases/start_interview_by_job_usecase.dart';
 import '../../features/simulation/domain/usecases/submit_answer_usecase.dart';
 import '../../features/simulation/presentation/cubit/interview_cubit.dart';
+import '../../features/simulation/presentation/cubit/interview_entry_cubit.dart';
 import '../../features/home/data/datasources/home_remote_datasource.dart';
 import '../../features/home/data/repositories/home_repository_impl.dart';
 import '../../features/home/domain/repositories/home_repository.dart';
@@ -54,6 +59,12 @@ import '../../features/home/presentation/cubit/home_cubit.dart';
 final sl = GetIt.instance;
 
 Future<void> init() async {
+  final preferences = await SharedPreferences.getInstance();
+  sl.registerSingleton<SharedPreferences>(preferences);
+  sl.registerLazySingleton(
+    () => LocalizationBloc(preferences: sl()),
+  );
+
   //! Features - Auth
   // Cubits
   sl.registerFactory(
@@ -145,6 +156,7 @@ Future<void> init() async {
       analyzeCvUseCase: sl(),
       updateSkillsUseCase: sl(),
       deleteSkillUseCase: sl(),
+      getMyCvProfileUseCase: sl(),
       localDataSource: sl(),
       secureStorage: sl(),
     ),
@@ -152,6 +164,7 @@ Future<void> init() async {
 
   // Usecases
   sl.registerLazySingleton(() => UploadCvUseCase(sl()));
+  sl.registerLazySingleton(() => GetMyCvProfileUseCase(sl()));
   sl.registerLazySingleton(() => AnalyzeCvUseCase(sl()));
   sl.registerLazySingleton(() => UpdateSkillsUseCase(sl()));
   sl.registerLazySingleton(() => DeleteSkillUseCase(sl()));
@@ -172,19 +185,25 @@ Future<void> init() async {
   //! Features - Interview
   // Cubit
   sl.registerFactory(
+    () => InterviewEntryCubit(getMyCvProfileUseCase: sl()),
+  );
+  sl.registerFactory(
     () => InterviewCubit(
       startInterviewByJobUseCase: sl(),
       startInterviewByJobDescriptionUseCase: sl(),
+      retryInterviewGenerationUseCase: sl(),
       submitAnswerUseCase: sl(),
       finishInterviewUseCase: sl(),
       getInterviewReportUseCase: sl(),
       getSimulationsHistoryUseCase: sl(),
+      getMyCvProfileUseCase: sl(),
     ),
   );
 
   // Usecases
   sl.registerLazySingleton(() => StartInterviewByJobUseCase(sl()));
   sl.registerLazySingleton(() => StartInterviewByJobDescriptionUseCase(sl()));
+  sl.registerLazySingleton(() => RetryInterviewGenerationUseCase(sl()));
   sl.registerLazySingleton(() => SubmitAnswerUseCase(sl()));
   sl.registerLazySingleton(() => FinishInterviewUseCase(sl()));
   sl.registerLazySingleton(() => GetInterviewReportUseCase(sl()));
@@ -231,7 +250,12 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SecureStorageService());
 
   // Network
-  sl.registerLazySingleton(() => DioClient(storage: sl()));
+  sl.registerLazySingleton(
+    () => DioClient(
+      storage: sl(),
+      languageCode: () => sl<LocalizationBloc>().state.locale.languageCode,
+    ),
+  );
 
   // Keep existing utils if needed for other features
   sl.registerLazySingleton(() => ApiEndpoints());

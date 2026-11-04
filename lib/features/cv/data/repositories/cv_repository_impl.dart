@@ -7,6 +7,7 @@ import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/cv.dart';
 import '../../domain/entities/cv_analysis_result.dart';
+import '../../domain/entities/cv_profile.dart';
 import '../../domain/repositories/cv_repository.dart';
 import '../datasources/cv_remote_datasource.dart';
 
@@ -94,6 +95,18 @@ class CvRepositoryImpl implements CvRepository {
     try {
       await remoteDataSource.deleteSkill(skill);
       return const Right(null);
+    } on AppException catch (e) {
+      return Left(_mapExceptionToFailure(e));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, CvProfile?>> getMyCvProfile() async {
+    try {
+      final profile = await remoteDataSource.getMyCvProfile();
+      return Right(profile);
     } on AppException catch (e) {
       return Left(_mapExceptionToFailure(e));
     } catch (e) {

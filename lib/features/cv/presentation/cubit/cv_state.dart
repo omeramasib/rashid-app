@@ -140,21 +140,67 @@ class CvAnalyzed extends CvState {
   final String cvId;
   final CvAnalysisResult result;
   final bool statusPersisted;
+  final List<String> skills;
+  final bool skillAdded;
+
+  /// True only after GET /cv/me reports this CV as processed.
+  final bool profileConfirmed;
 
   const CvAnalyzed({
     required this.cvId,
     required this.result,
     required this.statusPersisted,
+    required this.skills,
+    this.skillAdded = false,
+    this.profileConfirmed = false,
   });
 
   @override
-  List<Object?> get props => [cvId, result, statusPersisted];
+  List<Object?> get props => [
+        cvId,
+        result,
+        statusPersisted,
+        skills,
+        skillAdded,
+        profileConfirmed,
+      ];
 }
 
 class CvAnalysisRecorded extends CvState {
   final String cvId;
 
   const CvAnalysisRecorded({required this.cvId});
+
+  @override
+  List<Object?> get props => [cvId];
+}
+
+class CvProfileLoading extends CvState {
+  const CvProfileLoading();
+}
+
+class CvProfileLoadFailed extends CvState {
+  final Failure failure;
+
+  const CvProfileLoadFailed(this.failure);
+
+  @override
+  List<Object?> get props => [failure.runtimeType, failure.message];
+}
+
+class CvPendingAnalysis extends CvState {
+  final String cvId;
+
+  const CvPendingAnalysis({required this.cvId});
+
+  @override
+  List<Object?> get props => [cvId];
+}
+
+class CvAnalysisInProgress extends CvState {
+  final String cvId;
+
+  const CvAnalysisInProgress({required this.cvId});
 
   @override
   List<Object?> get props => [cvId];
@@ -171,19 +217,62 @@ class CvStorageReadFailed extends CvState {
 
 class CvSessionExpired extends CvState {}
 
-class SkillsUpdating extends CvState {}
+class SkillsUpdating extends CvState {
+  final String? cvId;
+  final CvAnalysisResult? result;
+  final bool statusPersisted;
+  final List<String> skills;
+
+  const SkillsUpdating({
+    this.cvId,
+    this.result,
+    this.statusPersisted = false,
+    this.skills = const [],
+  });
+
+  @override
+  List<Object?> get props => [cvId, result, statusPersisted, skills];
+}
 
 class SkillsUpdated extends CvState {}
 
-class SkillDeleting extends CvState {}
+class SkillDeleting extends CvState {
+  final String? cvId;
+  final CvAnalysisResult? result;
+  final bool statusPersisted;
+  final List<String> skills;
+
+  const SkillDeleting({
+    this.cvId,
+    this.result,
+    this.statusPersisted = false,
+    this.skills = const [],
+  });
+
+  @override
+  List<Object?> get props => [cvId, result, statusPersisted, skills];
+}
 
 class SkillDeleted extends CvState {}
 
 class CvError extends CvState {
   final String message;
+  final Failure? failure;
+  final String? cvId;
+  final CvAnalysisResult? result;
+  final bool statusPersisted;
+  final List<String> skills;
 
-  const CvError(this.message);
+  const CvError(
+    this.message, {
+    this.failure,
+    this.cvId,
+    this.result,
+    this.statusPersisted = false,
+    this.skills = const [],
+  });
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props =>
+      [message, failure, cvId, result, statusPersisted, skills];
 }

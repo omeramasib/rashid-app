@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 
 class NotificationsScreen extends StatelessWidget {
@@ -10,7 +11,7 @@ class NotificationsScreen extends StatelessWidget {
       backgroundColor: AppColors.white,
       appBar: AppBar(
         title: Text(
-          'الإشعارات',
+          AppLocalizations.tr(context, 'notifications'),
           style: AppTypography.bold(fontSize: 20, color: AppColors.fontColor),
         ),
       ),
@@ -26,11 +27,15 @@ class NotificationsScreen extends StatelessWidget {
                 child: const Icon(Icons.notifications, color: AppColors.white),
               ),
               title: Text(
-                'إشعار ${index + 1}',
+                AppLocalizations.tr(context, 'notification_title', {
+                  'index': '${index + 1}',
+                }),
                 style: AppTypography.bold(fontSize: 16, color: AppColors.fontColor),
               ),
               subtitle: Text(
-                'هذا نص إشعار تجريبي رقم ${index + 1}',
+                AppLocalizations.tr(context, 'notification_body', {
+                  'index': '${index + 1}',
+                }),
                 style:
                     AppTypography.regular(fontSize: 14, color: AppColors.hintColor),
               ),

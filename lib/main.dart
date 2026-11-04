@@ -7,6 +7,9 @@ import 'package:rashed_app/app/app_routes.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/di/injection_container.dart' as di;
+import 'package:rashed_app/core/localization/localization_bloc.dart';
+import 'package:rashed_app/core/localization/localization_event.dart';
+import 'package:rashed_app/core/localization/localization_state.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 import 'package:rashed_app/features/auth/presentation/cubit/password/password_cubit.dart';
 
@@ -16,6 +19,7 @@ import 'features/auth/presentation/cubit/register/register_cubit.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await di.init(); // Initialize Dependency Injection
+  di.sl<LocalizationBloc>().add(const LoadLanguage());
   runApp(const MyApp());
 }
 
@@ -27,8 +31,11 @@ class MyApp extends StatelessWidget {
       config: ClerkAuthConfig(
         publishableKey: ClerkConfig.publishableKey,
       ),
-      child: MultiBlocProvider(
+        child: MultiBlocProvider(
         providers: [
+          BlocProvider.value(
+            value: di.sl<LocalizationBloc>(),
+          ),
           BlocProvider(
             create: (context) => di.sl<LoginCubit>(),
           ),
@@ -39,30 +46,29 @@ class MyApp extends StatelessWidget {
             create: (context) => di.sl<PasswordCubit>(),
           ),
         ],
-        child: MaterialApp(
-          title: 'Rashed App',
-          theme: AppTheme.lightTheme,
-          debugShowCheckedModeBanner: false,
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [
-            Locale('ar', 'SA'),
-            Locale('en', 'US'),
-          ],
-          localeResolutionCallback: (deviceLocale, supportedLocales) {
-            for (final supportedLocale in supportedLocales) {
-              if (supportedLocale.languageCode == deviceLocale?.languageCode) {
-                return supportedLocale;
-              }
-            }
-            return supportedLocales.first;
+        child: BlocBuilder<LocalizationBloc, LocalizationState>(
+          builder: (context, state) {
+            return MaterialApp(
+              locale: state.locale,
+              onGenerateTitle: (context) =>
+                  AppLocalizations.of(context)?.translate('app_name') ??
+                  'Rashed',
+              theme: AppTheme.lightTheme,
+              debugShowCheckedModeBanner: false,
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [
+                Locale('ar'),
+                Locale('en'),
+              ],
+              initialRoute: RoutesName.splash,
+              onGenerateRoute: Routes.onGenerateRouted,
+            );
           },
-          initialRoute: RoutesName.splash,
-          onGenerateRoute: Routes.onGenerateRouted,
         ),
       ),
     );

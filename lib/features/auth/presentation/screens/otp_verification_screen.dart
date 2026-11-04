@@ -95,7 +95,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
             child: state.status == PasswordStatus.resending
                 ? const CircularProgressIndicator()
                 : Text(state.remainingSeconds > 0
-                    ? '${strings.translate('resend_wait')} ${state.remainingSeconds}s'
+                    ? strings.translate('resend_wait_seconds', {
+                        'seconds': '${state.remainingSeconds}',
+                      })
                     : strings.translate('resend_code')),
           ),
           const SizedBox(height: 12),

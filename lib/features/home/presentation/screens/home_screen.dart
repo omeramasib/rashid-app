@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get_it/get_it.dart';
 import 'package:rashed_app/Presentation/utils/images.dart';
 import 'package:rashed_app/app/routes_name.dart';
+import 'package:rashed_app/features/simulation/domain/interview_options.dart';
+import 'package:rashed_app/features/simulation/presentation/interview_navigation.dart';
 import 'package:rashed_app/core/storage/secure_storage_service.dart';
 import 'package:rashed_app/features/cv/data/datasources/cv_local_datasource.dart';
+import 'package:rashed_app/app_localizations.dart';
+import 'package:rashed_app/core/localization/app_text_direction.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends HookWidget {
   const HomeScreen({super.key});
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
-
-  final List<Widget> _pages = const [
+  static const _pages = [
     _HomeBody(),
     _PerformanceBody(),
     _MoreBody(),
@@ -25,17 +23,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = useState(0);
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: AppTextDirection.of(context),
       child: Scaffold(
         backgroundColor: AppColors.white,
-        body: SafeArea(child: _pages[_currentIndex]),
-        bottomNavigationBar: _buildBottomBar(),
+        body: SafeArea(child: _pages[currentIndex.value]),
+        bottomNavigationBar: _buildBottomBar(currentIndex),
       ),
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(ValueNotifier<int> currentIndex) {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.white,
@@ -45,19 +44,36 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _navItem(icon: Icons.home_outlined, index: 0, isHome: true),
-          _navItem(icon: Icons.show_chart_rounded, index: 1),
-          _navItem(icon: Icons.menu, index: 2),
+          _navItem(
+            icon: Icons.home_outlined,
+            index: 0,
+            currentIndex: currentIndex,
+            isHome: true,
+          ),
+          _navItem(
+            icon: Icons.show_chart_rounded,
+            index: 1,
+            currentIndex: currentIndex,
+          ),
+          _navItem(
+            icon: Icons.menu,
+            index: 2,
+            currentIndex: currentIndex,
+          ),
         ],
       ),
     );
   }
 
-  Widget _navItem(
-      {required IconData icon, required int index, bool isHome = false}) {
-    final isSelected = _currentIndex == index;
+  Widget _navItem({
+    required IconData icon,
+    required int index,
+    required ValueNotifier<int> currentIndex,
+    bool isHome = false,
+  }) {
+    final isSelected = currentIndex.value == index;
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () => currentIndex.value = index,
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
@@ -88,7 +104,7 @@ class _HomeBody extends StatelessWidget {
         children: [
           const SizedBox(height: 8),
           Text(
-            'الرئيسية',
+            AppLocalizations.tr(context, 'home_title'),
             style: AppTypography.bold(fontSize: 20, color: AppColors.fontColor),
           ),
           const SizedBox(height: 10),
@@ -103,25 +119,22 @@ class _HomeBody extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _SimulationCard(
-            title: 'محكاة بوصف وظيفي محدد',
-            description:
-                'ادخل الوصف الوظيفي للمقابلة التي ترغب في التقديم لها\nستكون المحاكاة مخصصة حسب الوصف',
+            title: AppLocalizations.tr(context, 'sim_by_job'),
+            description: AppLocalizations.tr(context, 'sim_by_job_desc'),
             icon: Icons.description_outlined,
-            onTap: () => Navigator.pushNamed(
+            onTap: () => openInterviewSimulation(
               context,
-              RoutesName.simulationQuestion,
-              arguments: 'job_description',
+              InterviewStartMode.byJobDescription,
             ),
           ),
           const SizedBox(height: 10),
           _SimulationCard(
-            title: 'محكاة حسب المجال العمل',
-            description: 'يمكنك اختيار مجال عملك الذي ترغب في عمل محاكاة له',
+            title: AppLocalizations.tr(context, 'sim_by_field'),
+            description: AppLocalizations.tr(context, 'sim_by_field_desc'),
             icon: Icons.description_outlined,
-            onTap: () => Navigator.pushNamed(
+            onTap: () => openInterviewSimulation(
               context,
-              RoutesName.simulationQuestion,
-              arguments: 'career_field',
+              InterviewStartMode.byJob,
             ),
           ),
           const SizedBox(height: 24),
@@ -158,10 +171,10 @@ class _WelcomeBanner extends StatelessWidget {
             top: 40,
             right: 160,
             child: Text(
-              'مرحبًا محمد  في راشد!\nجاهز لتحسين مهاراتك في المقابلات؟',
+              AppLocalizations.tr(context, 'home_welcome'),
               style: AppTypography.regular(
                   fontSize: 14, color: AppColors.fontColor),
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.start,
             ),
           ),
         ],
@@ -196,10 +209,10 @@ class _ShareCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'شارك اخر نتيجة لك',
+            AppLocalizations.tr(context, 'share_last_result'),
             style:
                 AppTypography.regular(fontSize: 12, color: AppColors.fontColor),
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.start,
           ),
           const Spacer(),
           Container(
@@ -212,7 +225,7 @@ class _ShareCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'مشاركة نتيجتي',
+                  AppLocalizations.tr(context, 'share_my_result'),
                   style: AppTypography.regular(
                       fontSize: 11, color: AppColors.white),
                 ),
@@ -254,17 +267,17 @@ class _SimCountCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'عدد مرات المحاكاة',
+            AppLocalizations.tr(context, 'sim_count'),
             style:
                 AppTypography.regular(fontSize: 12, color: AppColors.fontColor),
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.start,
           ),
           const Spacer(),
           Text(
             '4',
             style: AppTypography.regular(
                 fontSize: 20, color: AppColors.primarySet2),
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.start,
           ),
         ],
       ),
@@ -298,15 +311,22 @@ class _SimulationCard extends StatelessWidget {
         child: Column(
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                ShaderMask(
-                  shaderCallback: (bounds) =>
-                      AppColors.primaryGradient.createShader(bounds),
-                  child: Text(
-                    title,
-                    style: AppTypography.regular(
-                        fontSize: 15, color: AppColors.white),
+                Flexible(
+                  child: ShaderMask(
+                    shaderCallback: (bounds) =>
+                        AppColors.primaryGradient.createShader(bounds),
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: AppTypography.regular(
+                        fontSize: 15,
+                        color: AppColors.white,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -327,7 +347,7 @@ class _SimulationCard extends StatelessWidget {
               description,
               style: AppTypography.regular(
                   fontSize: 12, color: AppColors.fontColor),
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.start,
             ),
             const SizedBox(height: 12),
             Container(
@@ -339,7 +359,7 @@ class _SimulationCard extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Text(
-                'ابدأ المحاكاة',
+                AppLocalizations.tr(context, 'start_simulation'),
                 style:
                     AppTypography.regular(fontSize: 12, color: AppColors.white),
               ),
@@ -365,7 +385,7 @@ class _PerformanceBody extends StatelessWidget {
             shaderCallback: (bounds) =>
                 AppColors.primaryGradient.createShader(bounds),
             child: Text(
-              'أدائك',
+              AppLocalizations.tr(context, 'performance'),
               style: AppTypography.bold(fontSize: 20, color: AppColors.white),
             ),
           ),
@@ -373,16 +393,16 @@ class _PerformanceBody extends StatelessWidget {
           _BestResultBanner(),
           const SizedBox(height: 10),
           Row(
-            children: const [
+            children: [
               Expanded(
                   child: _StatCard(
-                      label: 'متوسط الأداء',
+                      label: AppLocalizations.tr(context, 'avg_performance'),
                       value: '72%',
                       icon: Icons.star_outline)),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                   child: _StatCard(
-                      label: 'عدد مرات المحاكاة',
+                      label: AppLocalizations.tr(context, 'sim_count'),
                       value: '4',
                       icon: Icons.sentiment_satisfied_alt_outlined)),
             ],
@@ -433,7 +453,7 @@ class _BestResultBanner extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'أفضل نتيجة لك',
+                      AppLocalizations.tr(context, 'best_result'),
                       style: AppTypography.regular(
                           fontSize: 12, color: AppColors.fontColor),
                     ),
@@ -451,7 +471,7 @@ class _BestResultBanner extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'مشاركة نتيجتي',
+                        AppLocalizations.tr(context, 'share_my_result'),
                         style: AppTypography.regular(
                             fontSize: 11, color: AppColors.white),
                       ),
@@ -526,20 +546,32 @@ class _InterviewLog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            'سجل مقابلات',
+            AppLocalizations.tr(context, 'interview_log'),
             style:
                 AppTypography.regular(fontSize: 16, color: AppColors.fontColor),
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.start,
           ),
           const SizedBox(height: 12),
-          _interviewRow('مقابلة محاكاة في البرمجة', '25 نوفمبر 2024', 'ممتاز',
-              AppColors.primary),
+          _interviewRow(
+            AppLocalizations.tr(context, 'interview_programming'),
+            AppLocalizations.tr(context, 'interview_sample_date'),
+            AppLocalizations.tr(context, 'rating_excellent'),
+            AppColors.primary,
+          ),
           const Divider(height: 1, color: AppColors.black10),
-          _interviewRow('مقابلة محاكاة في البرمجة', '25 نوفمبر 2024', 'متوسط',
-              const Color(0xFFF5A90B)),
+          _interviewRow(
+            AppLocalizations.tr(context, 'interview_programming'),
+            AppLocalizations.tr(context, 'interview_sample_date'),
+            AppLocalizations.tr(context, 'rating_average'),
+            const Color(0xFFF5A90B),
+          ),
           const Divider(height: 1, color: AppColors.black10),
-          _interviewRow('مقابلة محاكاة في البرمجة', '25 نوفمبر 2024', 'سيء',
-              AppColors.error),
+          _interviewRow(
+            AppLocalizations.tr(context, 'interview_programming'),
+            AppLocalizations.tr(context, 'interview_sample_date'),
+            AppLocalizations.tr(context, 'rating_poor'),
+            AppColors.error,
+          ),
         ],
       ),
     );
@@ -592,29 +624,31 @@ class _MoreBody extends StatelessWidget {
         children: [
           const SizedBox(height: 8),
           Text(
-            'المزيد',
+            AppLocalizations.tr(context, 'more'),
             style: AppTypography.bold(fontSize: 20, color: AppColors.fontColor),
           ),
           const SizedBox(height: 24),
           _menuTile(
             context,
             Icons.person_outline,
-            'الملف الشخصي',
+            AppLocalizations.tr(context, 'cv_title'),
             onTap: () => Navigator.pushNamed(context, RoutesName.profile),
           ),
           _menuTile(
             context,
             Icons.badge_outlined,
-            'اكمال الملف الشخصي',
+            AppLocalizations.tr(context, 'cv_result_title'),
             onTap: () =>
                 Navigator.pushNamed(context, RoutesName.completeProfile),
           ),
-          _menuTile(context, Icons.help_outline, 'المساعدة'),
-          _menuTile(context, Icons.info_outline, 'عن التطبيق'),
+          _menuTile(context, Icons.help_outline,
+              AppLocalizations.tr(context, 'help')),
+          _menuTile(context, Icons.info_outline,
+              AppLocalizations.tr(context, 'about_app')),
           _menuTile(
             context,
             Icons.logout,
-            'تسجيل الخروج',
+            AppLocalizations.tr(context, 'logout'),
             isDestructive: true,
             onTap: () async {
               final storage = GetIt.instance<SecureStorageService>();
@@ -660,10 +694,13 @@ class _MoreBody extends StatelessWidget {
           title: Text(
             label,
             style: AppTypography.regular(fontSize: 16, color: color),
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.start,
           ),
-          trailing: const Icon(Icons.chevron_left,
-              color: AppColors.hintColor, size: 20),
+          trailing: Icon(
+            Icons.chevron_right,
+            color: AppColors.hintColor,
+            size: 20,
+          ),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           shape: RoundedRectangleBorder(

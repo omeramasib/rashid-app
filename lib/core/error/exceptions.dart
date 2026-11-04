@@ -84,3 +84,14 @@ class GatewayTimeoutException extends AppException {
 class UpstreamException extends AppException {
   UpstreamException(super.message);
 }
+
+/// A failed interview start. [cause] is the mapped transport error.
+/// [simulationId] comes from the `X-Simulation-Id` response header when the
+/// backend kept the failed simulation.
+class InterviewStartException extends AppException {
+  final AppException cause;
+  final String? simulationId;
+
+  InterviewStartException(this.cause, {this.simulationId})
+      : super(cause.message);
+}

@@ -323,7 +323,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           } else if (state is RegisterFailure) {
                             CustomSnackBars.errorSnackBar(
                               context: context,
-                              message: state.message,
+                              message: AppLocalizations.message(
+                                context,
+                                state.message,
+                              ),
                             );
                           }
                         },

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../../../../app/routes_name.dart';
 import '../../../../app_localizations.dart';
@@ -8,29 +9,16 @@ import '../../domain/password_reset_validation.dart';
 import '../cubit/password/password_cubit.dart';
 import 'password_flow_ui.dart';
 
-class ResetPasswordScreen extends StatefulWidget {
+class ResetPasswordScreen extends HookWidget {
   const ResetPasswordScreen({super.key});
 
   @override
-  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
-}
-
-class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _password = TextEditingController();
-  final _confirmation = TextEditingController();
-  bool _showPassword = false;
-  bool _showConfirmation = false;
-
-  @override
-  void dispose() {
-    _password.dispose();
-    _confirmation.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final formKey = useMemoized(GlobalKey<FormState>.new);
+    final password = useTextEditingController();
+    final confirmation = useTextEditingController();
+    final showPassword = useState(false);
+    final showConfirmation = useState(false);
     final strings = AppLocalizations.of(context)!;
     return BlocConsumer<PasswordCubit, PasswordState>(
       listenWhen: (previous, current) =>
@@ -64,13 +52,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               child: Text(strings.translate('change_email')),
             ),
           Form(
-            key: _formKey,
+            key: formKey,
             child: Column(
               children: [
                 TextFormField(
                   key: const Key('newPassword'),
-                  controller: _password,
-                  obscureText: !_showPassword,
+                  controller: password,
+                  obscureText: !showPassword.value,
                   enabled: !state.isBusy,
                   autofillHints: const [AutofillHints.newPassword],
                   decoration: InputDecoration(
@@ -81,13 +69,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             : null,
                     suffixIcon: IconButton(
                       key: const Key('toggleNewPassword'),
-                      tooltip: strings.translate(
-                          _showPassword ? 'hide_password' : 'show_password'),
-                      icon: Icon(_showPassword
+                      tooltip: strings.translate(showPassword.value
+                          ? 'hide_password'
+                          : 'show_password'),
+                      icon: Icon(showPassword.value
                           ? Icons.visibility_off
                           : Icons.visibility),
-                      onPressed: () =>
-                          setState(() => _showPassword = !_showPassword),
+                      onPressed: () => showPassword.value = !showPassword.value,
                     ),
                   ),
                   validator: (value) =>
@@ -98,8 +86,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 const SizedBox(height: 20),
                 TextFormField(
                   key: const Key('confirmPassword'),
-                  controller: _confirmation,
-                  obscureText: !_showConfirmation,
+                  controller: confirmation,
+                  obscureText: !showConfirmation.value,
                   enabled: !state.isBusy,
                   autofillHints: const [AutofillHints.newPassword],
                   decoration: InputDecoration(
@@ -111,18 +99,18 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             : null,
                     suffixIcon: IconButton(
                       key: const Key('toggleConfirmPassword'),
-                      tooltip: strings.translate(_showConfirmation
+                      tooltip: strings.translate(showConfirmation.value
                           ? 'hide_password'
                           : 'show_password'),
-                      icon: Icon(_showConfirmation
+                      icon: Icon(showConfirmation.value
                           ? Icons.visibility_off
                           : Icons.visibility),
-                      onPressed: () => setState(
-                          () => _showConfirmation = !_showConfirmation),
+                      onPressed: () =>
+                          showConfirmation.value = !showConfirmation.value,
                     ),
                   ),
                   validator: (value) => PasswordResetValidation.passwordsMatch(
-                          _password.text, value ?? '')
+                          password.text, value ?? '')
                       ? null
                       : strings.translate('reset_password_mismatch'),
                 ),
@@ -135,11 +123,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             onPressed: state.isBusy
                 ? null
                 : () {
-                    if (!_formKey.currentState!.validate()) return;
+                    if (!formKey.currentState!.validate()) return;
                     FocusScope.of(context).unfocus();
                     context
                         .read<PasswordCubit>()
-                        .resetPassword(_password.text, _confirmation.text);
+                        .resetPassword(password.text, confirmation.text);
                   },
             child: state.status == PasswordStatus.resetting
                 ? const CircularProgressIndicator()

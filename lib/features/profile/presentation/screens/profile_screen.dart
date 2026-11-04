@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rashed_app/app/routes_name.dart';
+import 'package:rashed_app/app_localizations.dart';
+import 'package:rashed_app/core/localization/app_text_direction.dart';
+import 'package:rashed_app/core/localization/localization_bloc.dart';
 import 'package:rashed_app/core/theme/theme.dart';
+import 'package:rashed_app/features/profile/presentation/widgets/language_picker_sheet.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -8,7 +13,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: AppTextDirection.of(context),
       child: Scaffold(
         backgroundColor: AppColors.white,
         body: SafeArea(
@@ -24,7 +29,7 @@ class ProfileScreen extends StatelessWidget {
                         shaderCallback: (bounds) =>
                             AppColors.primaryGradient.createShader(bounds),
                         child: Text(
-                          'البروفايل',
+                          AppLocalizations.tr(context, 'profile_title'),
                           style: AppTypography.bold(
                             fontSize: 20,
                             color: AppColors.white,
@@ -36,42 +41,64 @@ class ProfileScreen extends StatelessWidget {
                       const SizedBox(height: 14),
                       _buildMenuItem(
                         context: context,
-                        title: 'عن التطبيق',
+                        title: AppLocalizations.tr(context, 'about_app'),
                         icon: Icons.grid_view_outlined,
                         iconColor: AppColors.primarySet2,
                         onTap: () {},
                       ),
                       _buildMenuItem(
                         context: context,
-                        title: 'تقييم التطبيق',
+                        title: AppLocalizations.tr(context, 'rate_app'),
                         icon: Icons.star_border_rounded,
                         iconColor: AppColors.primarySet2,
                         onTap: () {},
                       ),
                       _buildMenuItem(
                         context: context,
-                        title: 'سياسة الخصوصية',
+                        title: AppLocalizations.tr(context, 'privacy_policy'),
                         icon: Icons.description_outlined,
                         iconColor: AppColors.primarySet2,
                         onTap: () {},
                       ),
                       _buildMenuItem(
                         context: context,
-                        title: 'شارك التطبيق',
+                        title: AppLocalizations.tr(context, 'share_app'),
                         icon: Icons.share_outlined,
                         iconColor: AppColors.primarySet2,
                         onTap: () {},
                       ),
                       _buildMenuItem(
                         context: context,
-                        title: 'اللغة',
+                        title: AppLocalizations.tr(context, 'language'),
+                        value: AppLocalizations.tr(
+                          context,
+                          context
+                                      .watch<LocalizationBloc>()
+                                      .state
+                                      .locale
+                                      .languageCode ==
+                                  'ar'
+                              ? 'language_arabic'
+                              : 'language_english',
+                        ),
                         icon: Icons.language_outlined,
                         iconColor: AppColors.primarySet2,
-                        onTap: () {},
+                        onTap: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            backgroundColor: AppColors.white,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(16),
+                              ),
+                            ),
+                            builder: (_) => const LanguagePickerSheet(),
+                          );
+                        },
                       ),
                       _buildMenuItem(
                         context: context,
-                        title: 'تسجيل خروج',
+                        title: AppLocalizations.tr(context, 'logout'),
                         icon: Icons.logout_rounded,
                         iconColor: AppColors.error,
                         onTap: () {
@@ -120,7 +147,7 @@ class ProfileScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'مرحبًا، عمر محمد',
+                      AppLocalizations.tr(context, 'profile_greeting'),
                       style: AppTypography.regular(
                         fontSize: 16,
                         color: AppColors.fontColor,
@@ -173,6 +200,7 @@ class ProfileScreen extends StatelessWidget {
   Widget _buildMenuItem({
     required BuildContext context,
     required String title,
+    String? value,
     required IconData icon,
     required Color iconColor,
     required VoidCallback onTap,
@@ -195,6 +223,16 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 Icon(icon, size: 24, color: iconColor),
                 const Spacer(),
+                if (value != null) ...[
+                  Text(
+                    value,
+                    style: AppTypography.regular(
+                      fontSize: 14,
+                      color: AppColors.hintColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Text(
                   title,
                   style: AppTypography.regular(

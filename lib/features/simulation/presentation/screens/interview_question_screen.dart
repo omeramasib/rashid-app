@@ -1,228 +1,278 @@
 import 'package:flutter/material.dart';
-import 'package:rashed_app/app/routes_name.dart';
-import 'package:rashed_app/core/theme/theme.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
-class InterviewQuestionScreen extends StatefulWidget {
-  const InterviewQuestionScreen({super.key, this.simulationType});
+import '../../../../app/routes_name.dart';
+import '../../../../app_localizations.dart';
+import '../../../../core/localization/app_text_direction.dart';
+import '../../../../core/theme/theme.dart';
+import '../../domain/interview_options.dart';
+import '../cubit/interview_cubit.dart';
+import '../interview_error_text.dart';
+import '../widgets/interview_widgets.dart';
 
-  final String? simulationType;
-
-  @override
-  State<InterviewQuestionScreen> createState() => _InterviewQuestionScreenState();
-}
-
-class _InterviewQuestionScreenState extends State<InterviewQuestionScreen> {
-  final TextEditingController _answerController = TextEditingController();
-
-  @override
-  void dispose() {
-    _answerController.dispose();
-    super.dispose();
-  }
+class InterviewQuestionScreen extends HookWidget {
+  const InterviewQuestionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final controller = useTextEditingController();
+    final state = context.watch<InterviewCubit>().state;
+    final question = state.currentQuestion;
+    final savedAnswer =
+        question == null ? null : state.submittedAnswers[question.id];
+    useEffect(() {
+      controller.text = savedAnswer ?? '';
+      return null;
+    }, [question?.id, savedAnswer]);
+    useListenable(controller);
+
     return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildTopBar(context),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 8),
-                      _buildProgress(1),
-                      const SizedBox(height: 20),
-                      _questionCard(),
-                      const SizedBox(height: 14),
-                      _answerCard(),
-                      const SizedBox(height: 14),
-                      _actions(context),
-                    ],
+      textDirection: AppTextDirection.of(context),
+      child: BlocListener<InterviewCubit, InterviewState>(
+        listenWhen: (previous, current) =>
+            (previous.phase == InterviewPhase.submitting &&
+                current.phase == InterviewPhase.inProgress &&
+                current.error == null) ||
+            (previous.phase != InterviewPhase.finished &&
+                current.phase == InterviewPhase.finished),
+        listener: (context, next) {
+          if (ModalRoute.of(context)?.isCurrent != true) return;
+          final cubit = context.read<InterviewCubit>();
+          if (next.phase == InterviewPhase.finished) {
+            Navigator.pushNamed(
+              context,
+              RoutesName.simulationResult,
+              arguments: cubit,
+            );
+            return;
+          }
+          Navigator.pushNamed(
+            context,
+            RoutesName.simulationEvaluation,
+            arguments: cubit,
+          );
+        },
+        child: PopScope(
+          canPop: state.simulationId == null,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            _confirmFinish(context);
+          },
+          child: Scaffold(
+            backgroundColor: AppColors.white,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  InterviewTopBar(
+                    title: AppLocalizations.tr(
+                      context,
+                      'interview_questions_title',
+                    ),
+                    onBack: () => _confirmFinish(context),
                   ),
+                  Expanded(child: _body(context, state, controller)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _body(
+    BuildContext context,
+    InterviewState state,
+    TextEditingController controller,
+  ) {
+    final question = state.currentQuestion;
+    if (question == null) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          AppLocalizations.tr(context, 'interview_empty_questions'),
+          key: const Key('interview_empty_questions'),
+          style:
+              AppTypography.regular(fontSize: 16, color: AppColors.fontColor),
+        ),
+      );
+    }
+    final evaluation = state.evaluations[question.id];
+    final readOnly = evaluation != null;
+    final submitting = state.phase == InterviewPhase.submitting;
+    final canSubmit =
+        controller.text.trim().isNotEmpty && !submitting && !readOnly;
+    final routeCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      children: [
+        InterviewProgressBar(
+          current: state.currentIndex + 1,
+          total: state.questions.length,
+        ),
+        const SizedBox(height: 20),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: AppColors.cardGradient,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (question.category != null)
+                Text(
+                  question.category!,
+                  style: AppTypography.regular(
+                    fontSize: 12,
+                    color: AppColors.hintColor,
+                  ),
+                ),
+              Text(
+                question.questionText,
+                key: const Key('interview_question_text'),
+                style: AppTypography.regular(
+                  fontSize: 16,
+                  color: AppColors.fontColor,
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: const SizedBox(
-              width: 40,
-              height: 40,
-              child: Icon(Icons.chevron_right, size: 30, color: AppColors.black100),
-            ),
+        const SizedBox(height: 14),
+        Text(
+          AppLocalizations.tr(context, 'your_answer'),
+          style:
+              AppTypography.regular(fontSize: 16, color: AppColors.fontColor),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          key: const Key('interview_answer_input'),
+          controller: controller,
+          enabled: !readOnly && !submitting,
+          readOnly: readOnly,
+          maxLines: 7,
+          maxLength: InterviewOptions.maxAnswerLength,
+          textAlign: TextAlign.start,
+          decoration: InputDecoration(
+            hintText: AppLocalizations.tr(context, 'answer_hint'),
+            filled: true,
+            fillColor: AppColors.white,
           ),
-          Expanded(
-            child: Center(
-              child: ShaderMask(
-                shaderCallback: (bounds) =>
-                    AppColors.primaryGradient.createShader(bounds),
-                child: Text(
-                  'الإجابة على أسئلة المقابلة',
-                  style: AppTypography.regular(fontSize: 20, color: AppColors.white),
+        ),
+        if (state.error != null && routeCurrent) ...[
+          const SizedBox(height: 8),
+          InterviewErrorBanner(
+            message: interviewErrorText(context, state.error!),
+            actionLabel: interviewSessionClosed(state.error!)
+                ? AppLocalizations.tr(context, 'interview_finish_session')
+                : null,
+            onAction: interviewSessionClosed(state.error!)
+                ? () => context.read<InterviewCubit>().finish()
+                : null,
+          ),
+        ],
+        const SizedBox(height: 14),
+        if (readOnly)
+          Row(
+            children: [
+              Expanded(
+                child: InterviewActionButton(
+                  label: AppLocalizations.tr(
+                    context,
+                    state.isLastQuestion ? 'interview_finish' : 'next',
+                  ),
+                  busy: state.phase == InterviewPhase.finishing,
+                  onPressed: state.requestInFlight
+                      ? null
+                      : () => context.read<InterviewCubit>().next(),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 40),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgress(int current) {
-    const total = 5;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(
-          '$current من $total',
-          style: AppTypography.regular(fontSize: 12, color: AppColors.fontColor),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          height: 14,
-          decoration: BoxDecoration(
-            color: AppColors.inputBg,
-            borderRadius: BorderRadius.circular(100),
-          ),
-          alignment: Alignment.centerRight,
-          child: FractionallySizedBox(
-            widthFactor: current / total,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(100),
+              const SizedBox(width: 10),
+              Expanded(
+                child: InterviewActionButton(
+                  key: const Key('interview_view_review'),
+                  label: AppLocalizations.tr(context, 'interview_view_review'),
+                  primary: false,
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    RoutesName.simulationEvaluation,
+                    arguments: context.read<InterviewCubit>(),
+                  ),
+                ),
               ),
-            ),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: InterviewActionButton(
+                  key: const Key('interview_skip_button'),
+                  label: AppLocalizations.tr(context, 'interview_skip'),
+                  primary: false,
+                  busy: submitting,
+                  onPressed: submitting
+                      ? null
+                      : () => context.read<InterviewCubit>().skip(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: InterviewActionButton(
+                  key: const Key('interview_submit_button'),
+                  label: AppLocalizations.tr(
+                    context,
+                    submitting ? 'interview_submitting' : 'interview_submit',
+                  ),
+                  busy: submitting,
+                  onPressed: canSubmit
+                      ? () =>
+                          context.read<InterviewCubit>().submit(controller.text)
+                      : null,
+                ),
+              ),
+            ],
           ),
-        ),
+        const SizedBox(height: 16),
       ],
     );
   }
+}
 
-  Widget _questionCard() {
-    return Container(
-      width: double.infinity,
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        gradient: AppColors.cardGradient,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      alignment: Alignment.centerRight,
-      child: Text(
-        'ما هي نقاط قوتك وكيف تستفيد منها في العمل؟',
-        style: AppTypography.regular(fontSize: 14, color: AppColors.fontColor),
-      ),
-    );
+Future<void> _confirmFinish(BuildContext context) async {
+  final cubit = context.read<InterviewCubit>();
+  final phase = cubit.state.phase;
+  if (phase == InterviewPhase.finishing || phase == InterviewPhase.finished) {
+    return;
   }
-
-  Widget _answerCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        gradient: AppColors.cardGradient,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            'إجابتك',
-            style: AppTypography.regular(fontSize: 16, color: AppColors.fontColor),
+  final finishNow = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title:
+            Text(AppLocalizations.tr(dialogContext, 'interview_finish_title')),
+        content:
+            Text(AppLocalizations.tr(dialogContext, 'interview_finish_body')),
+        actions: [
+          TextButton(
+            key: const Key('interview_keep_going'),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+                AppLocalizations.tr(dialogContext, 'interview_keep_going')),
           ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _answerController,
-            maxLines: 7,
-            textAlign: TextAlign.right,
-            decoration: InputDecoration(
-              hintText: 'ادخل إجابتك لهذا السؤال',
-              hintStyle:
-                  AppTypography.regular(fontSize: 12, color: AppColors.hintColor),
-              filled: true,
-              fillColor: AppColors.white,
-            ),
+          TextButton(
+            key: const Key('interview_finish_now'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+                AppLocalizations.tr(dialogContext, 'interview_finish_now')),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _actions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _secondaryButton(
-            text: 'الغاء',
-            onTap: () => Navigator.pop(context),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          flex: 2,
-          child: _primaryButton(
-            text: 'حفظ واستمرار',
-            onTap: () => Navigator.pushNamed(
-              context,
-              RoutesName.simulationEvaluation,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _primaryButton({required String text, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          text,
-          style: AppTypography.bold(fontSize: 16, color: AppColors.white),
-        ),
-      ),
-    );
-  }
-
-  Widget _secondaryButton({required String text, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          text,
-          style: AppTypography.regular(fontSize: 16, color: AppColors.fontColor),
-        ),
-      ),
-    );
-  }
+      );
+    },
+  );
+  if (finishNow == true) cubit.finish();
 }

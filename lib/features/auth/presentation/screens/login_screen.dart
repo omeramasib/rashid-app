@@ -109,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
           } else if (state is LoginFailure) {
             CustomSnackBars.errorSnackBar(
               context: context,
-              message: state.message,
+              message: AppLocalizations.message(context, state.message),
             );
           }
         },
@@ -180,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 10),
                     Align(
-                      alignment: Alignment.centerRight,
+                      alignment: AlignmentDirectional.centerStart,
                       child: TextButton(
                         onPressed: () {
                           Navigator.pushNamed(

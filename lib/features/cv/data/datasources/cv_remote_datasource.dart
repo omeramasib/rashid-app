@@ -5,8 +5,10 @@ import 'package:dio/dio.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/dio_client.dart';
+import '../../domain/entities/cv_profile.dart';
 import '../models/cv_analysis_result_model.dart';
 import '../models/cv_model.dart';
+import '../models/cv_profile_model.dart';
 
 abstract class CvRemoteDataSource {
   Future<CvModel> uploadCv({
@@ -24,6 +26,9 @@ abstract class CvRemoteDataSource {
   Future<void> updateSkills(List<String> skills);
 
   Future<void> deleteSkill(String skill);
+
+  /// Null means the account has no CV. Failures throw; they are not "no CV".
+  Future<CvProfile?> getMyCvProfile();
 }
 
 class CvRemoteDataSourceImpl implements CvRemoteDataSource {
@@ -111,6 +116,20 @@ class CvRemoteDataSourceImpl implements CvRemoteDataSource {
       );
     } on DioException catch (e) {
       throw _exception(e);
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<CvProfile?> getMyCvProfile() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.cvMe);
+      return CvProfileModel.parse(response.data);
+    } on DioException catch (e) {
+      throw _exception(e);
+    } on AppException {
+      rethrow;
     } catch (e) {
       throw ServerException(e.toString());
     }
