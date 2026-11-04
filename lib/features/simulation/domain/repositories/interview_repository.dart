@@ -6,6 +6,7 @@ import '../entities/interview_finish_result.dart';
 import '../entities/interview_report.dart';
 import '../entities/interview_simulation_history.dart';
 import '../entities/interview_start_response.dart';
+import '../entities/simulation_history_count.dart';
 
 abstract class InterviewRepository {
   Future<Either<Failure, InterviewStartResponse>> startByJob({
@@ -46,4 +47,6 @@ abstract class InterviewRepository {
 
   Future<Either<Failure, List<InterviewSimulationHistory>>>
       getSimulationsHistory();
+
+  Future<Either<Failure, SimulationHistoryCount>> getSimulationHistoryCount();
 }

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get_it/get_it.dart';
 import 'package:rashed_app/Presentation/utils/images.dart';
 import 'package:rashed_app/app/routes_name.dart';
+import 'package:rashed_app/core/di/injection_container.dart' as di;
+import 'package:rashed_app/features/home/presentation/cubit/simulation_history_count_cubit.dart';
 import 'package:rashed_app/features/simulation/domain/interview_options.dart';
 import 'package:rashed_app/features/simulation/presentation/interview_navigation.dart';
 import 'package:rashed_app/core/storage/secure_storage_service.dart';
@@ -13,7 +16,9 @@ import 'package:rashed_app/core/localization/app_text_direction.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 
 class HomeScreen extends HookWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.simulationHistoryCountCubit});
+
+  final SimulationHistoryCountCubit? simulationHistoryCountCubit;
 
   static const _pages = [
     _HomeBody(),
@@ -24,7 +29,18 @@ class HomeScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final currentIndex = useState(0);
-    return Directionality(
+    final countCubit = useMemoized(_resolveCountCubit, [
+      simulationHistoryCountCubit,
+    ]);
+    useEffect(() {
+      countCubit?.load();
+      return () {
+        if (simulationHistoryCountCubit == null) {
+          countCubit?.close();
+        }
+      };
+    }, [countCubit]);
+    final screen = Directionality(
       textDirection: AppTextDirection.of(context),
       child: Scaffold(
         backgroundColor: AppColors.white,
@@ -32,6 +48,14 @@ class HomeScreen extends HookWidget {
         bottomNavigationBar: _buildBottomBar(currentIndex),
       ),
     );
+    if (countCubit == null) return screen;
+    return BlocProvider.value(value: countCubit, child: screen);
+  }
+
+  SimulationHistoryCountCubit? _resolveCountCubit() {
+    if (simulationHistoryCountCubit != null) return simulationHistoryCountCubit;
+    if (!di.sl.isRegistered<SimulationHistoryCountCubit>()) return null;
+    return di.sl<SimulationHistoryCountCubit>();
   }
 
   Widget _buildBottomBar(ValueNotifier<int> currentIndex) {
@@ -122,7 +146,7 @@ class _HomeBody extends StatelessWidget {
             title: AppLocalizations.tr(context, 'sim_by_job'),
             description: AppLocalizations.tr(context, 'sim_by_job_desc'),
             icon: Icons.description_outlined,
-            onTap: () => openInterviewSimulation(
+            onTap: () => _openSimulation(
               context,
               InterviewStartMode.byJobDescription,
             ),
@@ -132,7 +156,7 @@ class _HomeBody extends StatelessWidget {
             title: AppLocalizations.tr(context, 'sim_by_field'),
             description: AppLocalizations.tr(context, 'sim_by_field_desc'),
             icon: Icons.description_outlined,
-            onTap: () => openInterviewSimulation(
+            onTap: () => _openSimulation(
               context,
               InterviewStartMode.byJob,
             ),
@@ -142,6 +166,23 @@ class _HomeBody extends StatelessWidget {
       ),
     );
   }
+}
+
+SimulationHistoryCountCubit? _countCubitOf(BuildContext context) {
+  try {
+    return context.read<SimulationHistoryCountCubit>();
+  } on ProviderNotFoundException {
+    return null;
+  }
+}
+
+Future<void> _openSimulation(
+  BuildContext context,
+  InterviewStartMode mode,
+) async {
+  await openInterviewSimulation(context, mode);
+  if (!context.mounted) return;
+  await _countCubitOf(context)?.refresh();
 }
 
 class _WelcomeBanner extends StatelessWidget {
@@ -273,14 +314,55 @@ class _SimCountCard extends StatelessWidget {
             textAlign: TextAlign.start,
           ),
           const Spacer(),
-          Text(
-            '4',
-            style: AppTypography.regular(
-                fontSize: 20, color: AppColors.primarySet2),
-            textAlign: TextAlign.start,
-          ),
+          const _SimulationCountText(),
         ],
       ),
+    );
+  }
+}
+
+class _SimulationCountText extends StatelessWidget {
+  const _SimulationCountText();
+
+  @override
+  Widget build(BuildContext context) {
+    final style = AppTypography.regular(
+      fontSize: 20,
+      color: AppColors.primarySet2,
+    );
+    final cubit = _countCubitOf(context);
+    if (cubit == null) return const SizedBox(width: 18, height: 18);
+    return BlocBuilder<SimulationHistoryCountCubit,
+        SimulationHistoryCountState>(
+      builder: (context, state) {
+        if (state is SimulationHistoryCountSuccess) {
+          return Text(
+            '${state.totalSimulations}',
+            key: const Key('sim_history_count'),
+            style: style,
+            textAlign: TextAlign.start,
+          );
+        }
+        if (state is SimulationHistoryCountFailure) {
+          return GestureDetector(
+            key: const Key('sim_history_count_retry'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => context.read<SimulationHistoryCountCubit>().refresh(),
+            child: Text(
+              '—',
+              key: const Key('sim_history_count'),
+              style: style,
+              textAlign: TextAlign.start,
+            ),
+          );
+        }
+        return const SizedBox(
+          key: Key('sim_history_count_loading'),
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        );
+      },
     );
   }
 }
@@ -403,7 +485,7 @@ class _PerformanceBody extends StatelessWidget {
               Expanded(
                   child: _StatCard(
                       label: AppLocalizations.tr(context, 'sim_count'),
-                      value: '4',
+                      value: null,
                       icon: Icons.sentiment_satisfied_alt_outlined)),
             ],
           ),
@@ -494,7 +576,7 @@ class _StatCard extends StatelessWidget {
   const _StatCard(
       {required this.label, required this.value, required this.icon});
   final String label;
-  final String value;
+  final String? value;
   final IconData icon;
 
   @override
@@ -524,9 +606,12 @@ class _StatCard extends StatelessWidget {
               style: AppTypography.regular(
                   fontSize: 12, color: AppColors.fontColor)),
           const Spacer(),
-          Text(value,
-              style: AppTypography.regular(
-                  fontSize: 20, color: AppColors.primarySet2)),
+          if (value == null)
+            const _SimulationCountText()
+          else
+            Text(value!,
+                style: AppTypography.regular(
+                    fontSize: 20, color: AppColors.primarySet2)),
         ],
       ),
     );
@@ -651,6 +736,7 @@ class _MoreBody extends StatelessWidget {
             AppLocalizations.tr(context, 'logout'),
             isDestructive: true,
             onTap: () async {
+              _countCubitOf(context)?.clearSession();
               final storage = GetIt.instance<SecureStorageService>();
               final userId = await storage.read(key: 'user_id');
               if (userId != null && userId.isNotEmpty) {

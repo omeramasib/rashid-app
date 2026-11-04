@@ -1,14 +1,10 @@
-import 'package:flutter/foundation.dart';
-
 class ApiEndpoints {
+  static const String deployedBaseUrl = 'https://rashed-backend.vercel.app';
+
   static String get baseUrl {
     const configuredUrl = String.fromEnvironment('API_BASE_URL');
     if (configuredUrl.isNotEmpty) return configuredUrl;
-    return !kIsWeb && defaultTargetPlatform == TargetPlatform.android
-        // ? 'http://10.0.2.2:8000'
-        // ? 'http://192.168.8.8:8000'
-        ? 'http://10.20.10.12:8000'
-        : 'http://localhost:8000';
+    return deployedBaseUrl;
   }
 
   // Auth
@@ -42,6 +38,7 @@ class ApiEndpoints {
   static const String interviewFinish = '/api/v1/interview/finish';
   static const String interviewReport = '/api/v1/interview/report';
   static const String interviewHistory = '/api/v1/interview/simulations';
+  static const String interviewHistoryCount = '/api/v1/interview/history/count';
 
   static String interviewRetry(String simulationId) =>
       '/api/v1/interview/simulations/$simulationId/retry';

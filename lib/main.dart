@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:rashed_app/app/app_routes.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
+import 'package:rashed_app/core/ads/ads_bootstrap.dart';
 import 'package:rashed_app/core/di/injection_container.dart' as di;
 import 'package:rashed_app/core/localization/localization_bloc.dart';
 import 'package:rashed_app/core/localization/localization_event.dart';
@@ -20,6 +21,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await di.init(); // Initialize Dependency Injection
   di.sl<LocalizationBloc>().add(const LoadLanguage());
+  di.sl<AdsBootstrap>().start();
   runApp(const MyApp());
 }
 
@@ -31,7 +33,7 @@ class MyApp extends StatelessWidget {
       config: ClerkAuthConfig(
         publishableKey: ClerkConfig.publishableKey,
       ),
-        child: MultiBlocProvider(
+      child: MultiBlocProvider(
         providers: [
           BlocProvider.value(
             value: di.sl<LocalizationBloc>(),

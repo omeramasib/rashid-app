@@ -6,8 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rashed_app/core/error/exceptions.dart';
 import 'package:rashed_app/core/network/api_endpoints.dart';
+import 'package:rashed_app/core/network/auth_interceptor.dart';
 import 'package:rashed_app/core/network/dio_client.dart';
 import 'package:rashed_app/core/network/response_interceptor.dart';
+import 'package:rashed_app/core/storage/secure_storage_service.dart';
 import 'package:rashed_app/features/simulation/data/datasources/interview_remote_datasource.dart';
 
 class MockDioClient extends Mock implements DioClient {}
@@ -256,6 +258,79 @@ void main() {
     expect(result.score, 40);
     expect(result.reportSummary, 'Needs work');
   });
+
+  test('history count reads total_simulations from the unwrapped payload',
+      () async {
+    respond(body: {
+      'status': 'success',
+      'message': 'Simulation history count retrieved successfully',
+      'data': {'total_simulations': 12},
+    });
+    final count = await source.getSimulationHistoryCount();
+    expect(request?.method, 'GET');
+    expect(request?.path, ApiEndpoints.interviewHistoryCount);
+    expect(count.totalSimulations, 12);
+  });
+
+  test('history count preserves a real zero', () async {
+    respond(body: {
+      'status': 'success',
+      'data': {'total_simulations': 0},
+    });
+    final count = await source.getSimulationHistoryCount();
+    expect(count.totalSimulations, 0);
+  });
+
+  test('history count failure is not treated as zero', () async {
+    respond(status: 503, body: const {'detail': 'unavailable'});
+    await expectLater(
+      source.getSimulationHistoryCount(),
+      throwsA(isA<ServiceUnavailableException>()),
+    );
+  });
+
+  test('malformed history count is rejected', () async {
+    respond(body: {
+      'status': 'success',
+      'data': {'total_simulations': '12'},
+    });
+    await expectLater(
+      source.getSimulationHistoryCount(),
+      throwsA(isA<ServerException>()),
+    );
+
+    dio.interceptors.clear();
+    respond(body: {
+      'status': 'success',
+      'data': {'count': 12},
+    });
+    await expectLater(
+      source.getSimulationHistoryCount(),
+      throwsA(isA<ServerException>()),
+    );
+  });
+
+  test('history count attaches the bearer token from the auth interceptor',
+      () async {
+    final storage = _TokenStorage()..token = 'access-token';
+    respond(body: {
+      'status': 'success',
+      'data': {'total_simulations': 12},
+    });
+    dio.interceptors.insert(0, AuthInterceptor(storage));
+    await source.getSimulationHistoryCount();
+    expect(request?.headers['Authorization'], 'Bearer access-token');
+  });
+}
+
+class _TokenStorage extends Fake implements SecureStorageService {
+  String? token;
+
+  @override
+  Future<String?> read({required String key}) async {
+    if (key == 'token') return token;
+    return null;
+  }
 }
 
 class _ScriptedAdapter implements HttpClientAdapter {

@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/ads/ads_log.dart';
+import '../../../../core/ads/app_foreground.dart';
+import '../../../../core/ads/interview_ad_gate.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../cv/domain/entities/cv_profile.dart';
@@ -45,9 +50,13 @@ class InterviewCubit extends Cubit<InterviewState> {
   final GetInterviewReportUseCase getInterviewReportUseCase;
   final GetSimulationsHistoryUseCase getSimulationsHistoryUseCase;
   final GetMyCvProfileUseCase getMyCvProfileUseCase;
+  final InterviewAdGate? adGate;
 
+  final AppForegroundSignal _foreground;
   Future<void>? _cvLoad;
   bool _busyLock = false;
+  bool _abandonStart = false;
+  Completer<void>? _untilResumed;
 
   InterviewCubit({
     required this.startInterviewByJobUseCase,
@@ -58,7 +67,19 @@ class InterviewCubit extends Cubit<InterviewState> {
     required this.getInterviewReportUseCase,
     required this.getSimulationsHistoryUseCase,
     required this.getMyCvProfileUseCase,
-  }) : super(const InterviewState());
+    this.adGate,
+    AppForegroundSignal? foreground,
+  })  : _foreground = foreground ?? const AlwaysResumedForeground(),
+        super(const InterviewState());
+
+  /// Preloads the start interstitial while the setup screen is open.
+  ///
+  /// Failures are ignored. The interview never waits on this.
+  void preloadAd() {
+    final gate = adGate;
+    if (gate == null) return;
+    unawaited(gate.preload());
+  }
 
   Future<void> loadCv() {
     return _cvLoad ??= _loadCv();
@@ -143,7 +164,15 @@ class InterviewCubit extends Cubit<InterviewState> {
     _busyLock = true;
     try {
       await loadCv();
-      if (isClosed || state.requestInFlight) return;
+      if (isClosed || _abandonStart || state.requestInFlight) return;
+      try {
+        await adGate?.showIfEligible();
+      } catch (_) {
+        adsLog('ad gate failed');
+      }
+      if (isClosed || _abandonStart) return;
+      await _waitUntilResumed();
+      if (isClosed || _abandonStart) return;
       emit(state.copyWith(
         phase: InterviewPhase.starting,
         clearError: true,
@@ -169,7 +198,7 @@ class InterviewCubit extends Cubit<InterviewState> {
                 cvId: state.cvId,
               ),
             );
-      if (isClosed) return;
+      if (isClosed || _abandonStart) return;
       result.fold(_failStart, _beginSession);
     } finally {
       _busyLock = false;
@@ -251,10 +280,18 @@ class InterviewCubit extends Cubit<InterviewState> {
       final result = await finishInterviewUseCase(
         FinishInterviewParams(simulationId: simulationId),
       );
-      if (isClosed) return;
+      if (isClosed || _abandonStart) return;
       await result.fold((failure) async {
         emit(state.copyWith(phase: InterviewPhase.inProgress, error: failure));
       }, (finishResult) async {
+        try {
+          await adGate?.showIfEligible(AdPlacement.interviewFinish);
+        } catch (_) {
+          adsLog('finish ad gate failed');
+        }
+        if (isClosed || _abandonStart) return;
+        await _waitUntilResumed();
+        if (isClosed || _abandonStart) return;
         emit(state.copyWith(
           phase: InterviewPhase.finished,
           finishResult: finishResult,
@@ -391,6 +428,39 @@ class InterviewCubit extends Cubit<InterviewState> {
       clearReportFailure: true,
       reportLoading: false,
     ));
+    final gate = adGate;
+    if (gate != null) {
+      unawaited(gate.preload(AdPlacement.interviewFinish));
+    }
+  }
+
+  Future<void> _waitUntilResumed() {
+    if (_abandonStart || isClosed || _foreground.isResumed) {
+      return Future<void>.value();
+    }
+    final completer = Completer<void>();
+    _untilResumed = completer;
+    void listener() {
+      if (!_foreground.isResumed || completer.isCompleted) return;
+      _foreground.removeListener(listener);
+      completer.complete();
+    }
+
+    _foreground.addListener(listener);
+    return completer.future.whenComplete(() {
+      _foreground.removeListener(listener);
+      if (identical(_untilResumed, completer)) _untilResumed = null;
+    });
+  }
+
+  @override
+  Future<void> close() {
+    _abandonStart = true;
+    final pending = _untilResumed;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete();
+    }
+    return super.close();
   }
 
   bool _settingsAreValid({

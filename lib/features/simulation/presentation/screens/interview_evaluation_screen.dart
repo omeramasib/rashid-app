@@ -23,6 +23,7 @@ class InterviewEvaluationScreen extends StatelessWidget {
             previous.phase != InterviewPhase.finished &&
             current.phase == InterviewPhase.finished,
         listener: (context, state) {
+          if (!context.mounted) return;
           if (ModalRoute.of(context)?.isCurrent != true) return;
           Navigator.pushNamed(
             context,
