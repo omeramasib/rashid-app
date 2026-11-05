@@ -12,11 +12,11 @@ import 'package:rashed_app/features/auth/presentation/screens/password_reset_suc
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/auth/presentation/screens/otp_verification_screen.dart';
-import '../features/home/presentation/cubit/home_cubit.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import '../features/home/presentation/screens/more_screen.dart';
 import '../features/items/presentation/screens/item_detail_screen.dart';
 import '../features/items/presentation/screens/item_list_screen.dart';
+import '../features/linkedin/presentation/screens/linkedin_share_screen.dart';
 import '../features/notifications/presentation/screens/notifications_screen.dart';
 import '../features/profile/presentation/screens/complete_profile_screen.dart';
 import '../features/profile/presentation/screens/linkedin_import_screen.dart';
@@ -173,11 +173,16 @@ class Routes {
           return CupertinoPageRoute(
             builder: (_) => BlocProvider.value(
               value: cubit,
-              child: BlocProvider(
-                create: (_) => di.sl<HomeCubit>(),
-                child: const InterviewResultScreen(),
-              ),
+              child: const InterviewResultScreen(),
             ),
+            settings: routeSettings,
+          );
+        }
+
+      case RoutesName.linkedinShare:
+        {
+          return CupertinoPageRoute(
+            builder: (_) => const LinkedInShareScreen(),
             settings: routeSettings,
           );
         }

@@ -68,6 +68,10 @@ class ConflictFailure extends Failure {
   const ConflictFailure(super.message);
 }
 
+class GoneFailure extends Failure {
+  const GoneFailure(super.message);
+}
+
 class PayloadTooLargeFailure extends Failure {
   const PayloadTooLargeFailure(super.message);
 }

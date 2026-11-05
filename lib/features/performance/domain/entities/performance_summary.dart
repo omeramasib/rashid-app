@@ -30,6 +30,12 @@ class RecentInterview extends Equatable {
 class PerformanceSummary extends Equatable {
   final int? totalSimulations;
   final int? averageScore;
+
+  /// Aggregate high score. This is not a simulation id.
+  ///
+  /// Sharing this result needs a future `best_simulation_id` on
+  /// `GET /api/v1/interview/performance/summary`. Until then the best-score
+  /// chip stays disabled. Do not substitute a recent interview id.
   final int? bestScore;
   final List<RecentInterview> recentInterviews;
 

@@ -20,9 +20,12 @@ import 'package:rashed_app/features/performance/presentation/cubit/performance_c
 import 'package:rashed_app/features/performance/presentation/performance_format.dart';
 import 'package:rashed_app/features/simulation/presentation/cubit/interview_cubit.dart';
 import 'package:rashed_app/features/simulation/presentation/interview_error_text.dart';
+import 'package:rashed_app/features/linkedin/presentation/linkedin_share_request.dart';
 
 class HomeScreen extends HookWidget {
   const HomeScreen({super.key, this.simulationHistoryCountCubit});
+
+  static const int performanceTab = 1;
 
   final SimulationHistoryCountCubit? simulationHistoryCountCubit;
 
@@ -34,7 +37,9 @@ class HomeScreen extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentIndex = useState(0);
+    final routeArgs = ModalRoute.of(context)?.settings.arguments;
+    final initialTab = routeArgs == performanceTab ? performanceTab : 0;
+    final currentIndex = useState(initialTab);
     final countCubit = useMemoized(_resolveCountCubit, [
       simulationHistoryCountCubit,
     ]);
@@ -142,7 +147,12 @@ class _HomeBody extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _ShareCard()),
+              Expanded(
+                child: _UnavailableShareTarget(
+                  shareKey: const Key('home_share_card_disabled'),
+                  child: _ShareCard(),
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(child: _SimCountCard()),
             ],
@@ -225,6 +235,32 @@ class _WelcomeBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _UnavailableShareTarget extends StatelessWidget {
+  const _UnavailableShareTarget({
+    required this.shareKey,
+    required this.child,
+  });
+
+  final Key shareKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      key: shareKey,
+      ignoring: true,
+      child: Opacity(
+        opacity: 0.45,
+        child: Semantics(
+          button: true,
+          enabled: false,
+          child: child,
+        ),
       ),
     );
   }
@@ -657,25 +693,28 @@ class _BestResultBanner extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Container(
-                  height: 34,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(26),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        AppLocalizations.tr(context, 'share_my_result'),
-                        style: AppTypography.regular(
-                            fontSize: 11, color: AppColors.white),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(Icons.share_outlined,
-                          size: 16, color: AppColors.white),
-                    ],
+                _UnavailableShareTarget(
+                  shareKey: const Key('performance_best_share_disabled'),
+                  child: Container(
+                    height: 34,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          AppLocalizations.tr(context, 'share_my_result'),
+                          style: AppTypography.regular(
+                              fontSize: 11, color: AppColors.white),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.share_outlined,
+                            size: 16, color: AppColors.white),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -726,7 +765,7 @@ class _StatCard extends StatelessWidget {
               style: AppTypography.regular(
                   fontSize: 12, color: AppColors.fontColor)),
           const Spacer(),
-          Text(value,
+          Text(value!,
               key: valueKey,
               style: AppTypography.regular(
                   fontSize: 20, color: AppColors.primarySet2)),
@@ -804,6 +843,9 @@ class _InterviewRow extends StatelessWidget {
       (key) => AppLocalizations.tr(context, key),
     );
     final badgeColor = _statusColor(interview.performanceStatus);
+    final resultLabel = interview.score == null
+        ? title
+        : '$title · ${performanceScoreText(interview.score, '')}';
     return GestureDetector(
       key: Key('performance_interview_${interview.simulationId}'),
       behavior: HitTestBehavior.opaque,
@@ -812,6 +854,23 @@ class _InterviewRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
+            GestureDetector(
+              key: Key('performance_share_${interview.simulationId}'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => openLinkedInShare(
+                context,
+                simulationId: interview.simulationId,
+                resultLabel: resultLabel,
+              ),
+              child: const Padding(
+                padding: EdgeInsetsDirectional.only(end: 8),
+                child: Icon(
+                  Icons.share_outlined,
+                  size: 20,
+                  color: AppColors.primarySet2,
+                ),
+              ),
+            ),
             if (badge != null && badgeColor != null)
               Container(
                 padding:

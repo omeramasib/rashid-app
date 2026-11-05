@@ -7,6 +7,7 @@ import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/usecases/usecase.dart';
 import 'package:rashed_app/features/home/presentation/screens/home_screen.dart';
+import 'package:rashed_app/features/linkedin/presentation/linkedin_share_request.dart';
 import 'package:rashed_app/features/performance/domain/entities/performance_summary.dart';
 import 'package:rashed_app/features/performance/domain/usecases/get_performance_summary_usecase.dart';
 import 'package:rashed_app/features/performance/presentation/cubit/performance_cubit.dart';
@@ -128,5 +129,74 @@ void main() {
     expect(find.text('result-screen'), findsOneWidget);
     expect(resultArguments, same(interviewCubit));
     verify(() => interviewCubit.openCompletedReport('sim-9')).called(1);
+  });
+
+  testWidgets(
+      'disables aggregate share targets and shares the selected interview',
+      (tester) async {
+    when(() => getSummary(any())).thenAnswer(
+      (_) async => const Right(PerformanceSummary(
+        bestScore: 85,
+        recentInterviews: [
+          RecentInterview(
+            simulationId: 'sim-9',
+            jobField: 'Programming',
+            score: 85,
+            performanceStatus: PerformanceStatus.excellent,
+          ),
+        ],
+      )),
+    );
+    String? routeName;
+    Object? shareArguments;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      initialRoute: '/',
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        DefaultMaterialLocalizations.delegate,
+        DefaultWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('en'), Locale('ar')],
+      home: const HomeScreen(),
+      onGenerateRoute: (settings) {
+        routeName = settings.name;
+        shareArguments = settings.arguments;
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const SizedBox.shrink(),
+        );
+      },
+    ));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<IgnorePointer>(
+              find.byKey(const Key('home_share_card_disabled')))
+          .ignoring,
+      isTrue,
+    );
+
+    await tester.tap(find.byIcon(Icons.show_chart_rounded));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<IgnorePointer>(
+            find.byKey(const Key('performance_best_share_disabled')),
+          )
+          .ignoring,
+      isTrue,
+    );
+    expect(find.text('Share my result'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('performance_share_sim-9')));
+    await tester.pumpAndSettle();
+
+    expect(routeName, RoutesName.linkedinShare);
+    final request = shareArguments! as LinkedInShareRequest;
+    expect(request.simulationId, 'sim-9');
+    expect(request.resultLabel, 'Programming · 85%');
+    verifyNever(() => interviewCubit.openCompletedReport(any()));
   });
 }

@@ -33,6 +33,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
 			<string>com.rashedapp.oauth</string>
+			<!-- Also receives the publishing return rashedapp://linkedin/oauth -->
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>rashedapp</string>

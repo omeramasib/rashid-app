@@ -32,11 +32,19 @@ import '../../features/auth/domain/usecases/get_current_user_usecase.dart';
 import '../../features/auth/presentation/cubit/profile/auth_profile_cubit.dart';
 import '../../features/auth/presentation/cubit/password/password_cubit.dart';
 import '../../features/linkedin/data/datasources/linkedin_remote_datasource.dart';
+import '../../features/linkedin/data/linkedin_authorization_launcher.dart';
+import '../../features/linkedin/data/linkedin_link_source.dart';
+import '../../features/linkedin/data/linkedin_pending_share_store.dart';
 import '../../features/linkedin/data/repositories/linkedin_repository_impl.dart';
 import '../../features/linkedin/domain/repositories/linkedin_repository.dart';
-import '../../features/linkedin/domain/usecases/connect_linkedin_usecase.dart';
 import '../../features/linkedin/domain/usecases/disconnect_linkedin_usecase.dart';
-import '../../features/linkedin/presentation/cubit/linkedin_cubit.dart';
+import '../../features/linkedin/domain/usecases/get_linkedin_status_usecase.dart';
+import '../../features/linkedin/domain/usecases/preview_linkedin_share_usecase.dart';
+import '../../features/linkedin/domain/usecases/publish_linkedin_share_usecase.dart';
+import '../../features/linkedin/domain/usecases/start_linkedin_oauth_usecase.dart';
+import '../../features/linkedin/presentation/cubit/linkedin_share_cubit.dart';
+import '../../features/linkedin/presentation/linkedin_oauth_coordinator.dart';
+import '../../features/linkedin/presentation/linkedin_share_presenter.dart';
 import '../../features/cv/data/datasources/cv_local_datasource.dart';
 import '../../features/cv/data/datasources/cv_remote_datasource.dart';
 import '../../features/cv/data/repositories/cv_repository_impl.dart';
@@ -65,11 +73,6 @@ import '../../features/performance/data/repositories/performance_repository_impl
 import '../../features/performance/domain/repositories/performance_repository.dart';
 import '../../features/performance/domain/usecases/get_performance_summary_usecase.dart';
 import '../../features/performance/presentation/cubit/performance_cubit.dart';
-import '../../features/home/data/datasources/home_remote_datasource.dart';
-import '../../features/home/data/repositories/home_repository_impl.dart';
-import '../../features/home/domain/repositories/home_repository.dart';
-import '../../features/home/domain/usecases/share_interview_result_usecase.dart';
-import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/home/presentation/cubit/simulation_history_count_cubit.dart';
 
 final sl = GetIt.instance;
@@ -141,27 +144,47 @@ Future<void> init() async {
     () => AuthRemoteDataSourceImpl(client: sl()),
   );
 
-  //! Features - LinkedIn
-  // Cubit
-  sl.registerFactory(
-    () => LinkedInCubit(
-      connectLinkedInUseCase: sl(),
-      disconnectLinkedInUseCase: sl(),
+  //! Features - LinkedIn publishing
+  sl.registerLazySingleton(() => LinkedInReturnGate());
+  sl.registerLazySingleton(() => LinkedInShareRouteObserver());
+  sl.registerLazySingleton(
+    () => LinkedInShareCubit(
+      getStatus: sl(),
+      startOAuth: sl(),
+      previewShare: sl(),
+      publishShare: sl(),
+      disconnectLinkedIn: sl(),
+      pendingShare: sl(),
+      launcher: sl(),
+      returnGate: sl(),
     ),
   );
-
-  // Usecases
-  sl.registerLazySingleton(() => ConnectLinkedInUseCase(sl()));
+  sl.registerLazySingleton(
+    () => LinkedInOAuthCoordinator(
+      links: sl(),
+      cubit: sl(),
+      gate: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => GetLinkedInStatusUseCase(sl()));
+  sl.registerLazySingleton(() => StartLinkedInOAuthUseCase(sl()));
+  sl.registerLazySingleton(() => PreviewLinkedInShareUseCase(sl()));
+  sl.registerLazySingleton(() => PublishLinkedInShareUseCase(sl()));
   sl.registerLazySingleton(() => DisconnectLinkedInUseCase(sl()));
-
-  // Repository
   sl.registerLazySingleton<LinkedInRepository>(
     () => LinkedInRepositoryImpl(remoteDataSource: sl()),
   );
-
-  // Data sources
   sl.registerLazySingleton<LinkedInRemoteDataSource>(
     () => LinkedInRemoteDataSourceImpl(client: sl()),
+  );
+  sl.registerLazySingleton<LinkedInPendingShareStore>(
+    () => SecureLinkedInPendingShareStore(sl()),
+  );
+  sl.registerLazySingleton<LinkedInAuthorizationLauncher>(
+    () => UrlLauncherLinkedInAuthorization(),
+  );
+  sl.registerLazySingleton<LinkedInLinkSource>(
+    () => AppLinksLinkedInSource(),
   );
 
   //! Features - CV
@@ -251,28 +274,11 @@ Future<void> init() async {
   );
 
   //! Features - Home
-  // Cubit
-  sl.registerFactory(
-    () => HomeCubit(shareInterviewResultUseCase: sl()),
-  );
   sl.registerFactory(
     () => SimulationHistoryCountCubit(
       getSimulationHistoryCount: sl(),
       secureStorage: sl(),
     ),
-  );
-
-  // Usecases
-  sl.registerLazySingleton(() => ShareInterviewResultUseCase(sl()));
-
-  // Repository
-  sl.registerLazySingleton<HomeRepository>(
-    () => HomeRepositoryImpl(remoteDataSource: sl()),
-  );
-
-  // Data sources
-  sl.registerLazySingleton<HomeRemoteDataSource>(
-    () => HomeRemoteDataSourceImpl(client: sl()),
   );
 
   //! Core

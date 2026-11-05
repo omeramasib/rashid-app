@@ -7,7 +7,7 @@ import '../../../../app/routes_name.dart';
 import '../../../../app_localizations.dart';
 import '../../../../core/localization/app_text_direction.dart';
 import '../../../../core/theme/theme.dart';
-import '../../../home/presentation/cubit/home_cubit.dart';
+import '../../../linkedin/presentation/linkedin_share_request.dart';
 import '../../domain/entities/interview_finish_result.dart';
 import '../../domain/entities/interview_report.dart';
 import '../cubit/interview_cubit.dart';
@@ -48,7 +48,7 @@ class InterviewResultScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   _report(context, state),
                   const SizedBox(height: 16),
-                  _share(context),
+                  _share(context, state),
                   const SizedBox(height: 12),
                   InterviewActionButton(
                     key: const Key('interview_keep_improving'),
@@ -277,41 +277,20 @@ class InterviewResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _share(BuildContext context) {
-    return BlocBuilder<HomeCubit, HomeState>(
-      builder: (context, homeState) {
-        final sharing = homeState is HomeSharing;
-        final status = homeState is HomeShared
-            ? AppLocalizations.tr(context, 'interview_share_sent')
-            : homeState is HomeError
-                ? AppLocalizations.message(context, homeState.message)
-                : null;
-        return Column(
-          children: [
-            InterviewActionButton(
-              key: const Key('interview_share_button'),
-              label: AppLocalizations.tr(context, 'share_linkedin_result'),
-              busy: sharing,
-              onPressed: sharing
-                  ? null
-                  : () => context.read<HomeCubit>().shareLastInterviewResult(),
-            ),
-            if (status != null && status.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                status,
-                key: const Key('interview_share_status'),
-                style: AppTypography.regular(
-                  fontSize: 13,
-                  color: homeState is HomeError
-                      ? AppColors.error
-                      : AppColors.fontColor,
-                ),
-              ),
-            ],
-          ],
-        );
-      },
+  Widget _share(BuildContext context, InterviewState state) {
+    final result = state.finishResult;
+    final simulationId = (result?.simulationId ?? state.simulationId)?.trim();
+    final canShare = simulationId != null && simulationId.isNotEmpty;
+    return InterviewActionButton(
+      key: const Key('interview_share_button'),
+      label: AppLocalizations.tr(context, 'share_linkedin_result'),
+      onPressed: canShare
+          ? () => openLinkedInShare(
+                context,
+                simulationId: simulationId,
+                resultLabel: result?.score?.toString(),
+              )
+          : null,
     );
   }
 }

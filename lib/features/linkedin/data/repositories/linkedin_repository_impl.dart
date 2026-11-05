@@ -1,7 +1,11 @@
 import 'package:dartz/dartz.dart';
+
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
-import '../../domain/entities/linkedin_account.dart';
+import '../../domain/entities/linkedin_connection_status.dart';
+import '../../domain/entities/linkedin_oauth_start.dart';
+import '../../domain/entities/linkedin_publish_result.dart';
+import '../../domain/entities/linkedin_share_preview.dart';
 import '../../domain/repositories/linkedin_repository.dart';
 import '../datasources/linkedin_remote_datasource.dart';
 
@@ -11,39 +15,90 @@ class LinkedInRepositoryImpl implements LinkedInRepository {
   LinkedInRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<Either<Failure, LinkedInAccount>> connectLinkedIn(
-      String linkedinAccessToken) async {
+  Future<Either<Failure, LinkedInConnectionStatus>> getStatus() async {
     try {
-      final account =
-          await remoteDataSource.connectLinkedIn(linkedinAccessToken);
-      return Right(account);
-    } on AppException catch (e) {
-      return Left(_mapExceptionToFailure(e));
-    } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Right(await remoteDataSource.getStatus());
+    } on AppException catch (error) {
+      return Left(_mapException(error));
+    } catch (error) {
+      return Left(ServerFailure(error.toString()));
     }
   }
 
   @override
-  Future<Either<Failure, void>> disconnectLinkedIn() async {
+  Future<Either<Failure, LinkedInOAuthStart>> startOAuth(
+    String simulationId,
+  ) async {
     try {
-      await remoteDataSource.disconnectLinkedIn();
-      return const Right(null);
-    } on AppException catch (e) {
-      return Left(_mapExceptionToFailure(e));
-    } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Right(await remoteDataSource.startOAuth(simulationId));
+    } on AppException catch (error) {
+      return Left(_mapException(error));
+    } catch (error) {
+      return Left(ServerFailure(error.toString()));
     }
   }
 
-  Failure _mapExceptionToFailure(AppException e) {
-    if (e is UserNotFoundException) return UserNotFoundFailure(e.message);
-    if (e is BadRequestException) return BadRequestFailure(e.message);
-    if (e is UnauthorizedException) return UnauthorizedFailure(e.message);
-    if (e is ForbiddenException) return ForbiddenFailure(e.message);
-    if (e is NotFoundException) return NotFoundFailure(e.message);
-    if (e is NetworkException) return NetworkFailure(e.message);
-    if (e is UpstreamException) return UpstreamFailure(e.message);
-    return ServerFailure(e.message);
+  @override
+  Future<Either<Failure, LinkedInSharePreview>> previewShare(
+    String simulationId,
+  ) async {
+    try {
+      return Right(await remoteDataSource.previewShare(simulationId));
+    } on AppException catch (error) {
+      return Left(_mapException(error));
+    } catch (error) {
+      return Left(ServerFailure(error.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, LinkedInPublishResult>> publish({
+    required String previewId,
+    required String simulationId,
+    required String contentSha256,
+  }) async {
+    try {
+      return Right(await remoteDataSource.publish(
+        previewId: previewId,
+        simulationId: simulationId,
+        contentSha256: contentSha256,
+      ));
+    } on AppException catch (error) {
+      return Left(_mapException(error));
+    } catch (error) {
+      return Left(ServerFailure(error.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> disconnect() async {
+    try {
+      await remoteDataSource.disconnect();
+      return const Right(null);
+    } on AppException catch (error) {
+      return Left(_mapException(error));
+    } catch (error) {
+      return Left(ServerFailure(error.toString()));
+    }
+  }
+
+  Failure _mapException(AppException error) {
+    if (error is UserNotFoundException) {
+      return UserNotFoundFailure(error.message);
+    }
+    if (error is BadRequestException) return BadRequestFailure(error.message);
+    if (error is UnauthorizedException) {
+      return UnauthorizedFailure(error.message);
+    }
+    if (error is ForbiddenException) return ForbiddenFailure(error.message);
+    if (error is NotFoundException) return NotFoundFailure(error.message);
+    if (error is ConflictException) return ConflictFailure(error.message);
+    if (error is GoneException) return GoneFailure(error.message);
+    if (error is NetworkException) return NetworkFailure(error.message);
+    if (error is UpstreamException) return UpstreamFailure(error.message);
+    if (error is ServiceUnavailableException) {
+      return ServiceUnavailableFailure(error.message);
+    }
+    return ServerFailure(error.message);
   }
 }

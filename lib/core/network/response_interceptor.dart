@@ -60,6 +60,8 @@ class ResponseInterceptor extends Interceptor {
         handler.reject(_reject(err, NotFoundException(message)));
       case 409:
         handler.reject(_reject(err, ConflictException(message)));
+      case 410:
+        handler.reject(_reject(err, GoneException(message)));
       case 413:
         handler.reject(_reject(err, PayloadTooLargeException(message)));
       case 422:
