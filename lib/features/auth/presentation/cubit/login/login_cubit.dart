@@ -37,8 +37,8 @@ class LoginCubit extends Cubit<LoginState> {
       LoginWithEmailParams(email: email, password: password),
     );
 
-    result.fold(
-      (failure) => emit(LoginFailure(failure.message)),
+    await result.fold<Future<void>>(
+      (failure) async => emit(LoginFailure(failure.message)),
       (user) async {
         await _storeUserCredentials(user, email: email);
         emit(LoginSuccess(user));

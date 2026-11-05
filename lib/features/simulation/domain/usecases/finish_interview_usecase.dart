@@ -1,17 +1,22 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
+
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../entities/interview_finish_result.dart';
 import '../repositories/interview_repository.dart';
 
-class FinishInterviewUseCase implements UseCase<void, FinishInterviewParams> {
+class FinishInterviewUseCase
+    implements UseCase<InterviewFinishResult, FinishInterviewParams> {
   final InterviewRepository repository;
 
   FinishInterviewUseCase(this.repository);
 
   @override
-  Future<Either<Failure, void>> call(FinishInterviewParams params) async {
-    return await repository.finishInterview(params.simulationId);
+  Future<Either<Failure, InterviewFinishResult>> call(
+    FinishInterviewParams params,
+  ) {
+    return repository.finishInterview(params.simulationId);
   }
 }
 

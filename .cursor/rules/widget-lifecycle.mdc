@@ -1,0 +1,55 @@
+---
+description: Choose StatelessWidget, HookWidget, or StatefulWidget correctly. Use flutter_hooks only for local UI state; keep business state in Bloc/Cubit.
+globs: lib/**/*.dart
+alwaysApply: false
+---
+
+# Widget Lifecycle
+
+Do not default to `StatefulWidget`. Analyze each widget before choosing a type.
+Use `flutter_hooks` for local UI state only. Do not move business logic into Hooks.
+
+## Use `StatelessWidget` when
+
+- No `setState`, controllers, listeners, subscriptions, animations, timers, or lifecycle work
+- The widget only renders constructor params, Bloc/Cubit, or other external state
+- `StatefulWidget` would have no real mutable state
+
+## Use `HookWidget` when the widget only needs
+
+- `TextEditingController`, `ScrollController`, `PageController`, `TabController`, `FocusNode`
+- Simple `AnimationController` usage
+- Local UI values: visibility, tab/index, expanded, checkbox/switch, temporary filter, non-business local loading
+- Simple init/cleanup via `useEffect`
+- `ValueNotifier`, streams, or listeners with clear cleanup
+
+Use `useState`, `useTextEditingController`, `useScrollController`, `usePageController`, `useFocusNode`, `useAnimationController`, `useEffect`, `useMemoized`, `useValueChanged`, `useListenable`.
+
+## Use `StatefulWidget` when
+
+- Init/dispose is complex or tightly ordered
+- Heavy `didUpdateWidget`, `WidgetsBindingObserver`, or app-lifecycle handling
+- Cameras, video, maps, calls, sensors, WebViews, or other native resources
+- Several interconnected subscriptions or async resources
+- A mixin (`RouteAware`, `TickerProvider`, `WidgetsBindingObserver`) is clearer in `State`
+- Hooks would reduce clarity or add risk
+
+## State management
+
+- API, loading, errors, auth, pagination, and shared state stay in Bloc/Cubit
+- Do not replace Cubit state with `useState` or call Cubit/API methods in `build()`
+- Initial Cubit actions go in `useEffect` with a stable dependency list
+- Do not change `BlocBuilder` / `BlocListener` / `BlocConsumer` unless required for correctness
+
+## Hooks safety
+
+- Never call Hooks conditionally, in loops, callbacks, or nested functions
+- Call Hooks at the top of `build()` in a stable order
+- Clean up listeners, subscriptions, timers, and manual resources
+- Do not use unstable `useEffect` dependencies or `setState` on a `HookWidget`
+
+```dart
+class ProfileCard extends StatelessWidget   // no mutable state
+class LoginForm extends HookWidget         // controllers / local UI
+class VideoCallScreen extends StatefulWidget // native / complex lifecycle
+```

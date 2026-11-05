@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rashed_app/core/error/exceptions.dart';
 import 'package:rashed_app/core/error/failures.dart';
+import 'package:rashed_app/core/error/password_reset_problem.dart';
 import 'package:rashed_app/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:rashed_app/features/auth/data/models/user_model.dart';
 import 'package:rashed_app/features/auth/data/repositories/auth_repository_impl.dart';
@@ -101,7 +102,8 @@ void main() {
           password: tPassword,
         );
         // assert
-        expect(result, equals(const Left(ServerFailure('Registration failed'))));
+        expect(
+            result, equals(const Left(ServerFailure('Registration failed'))));
       },
     );
   });
@@ -130,7 +132,8 @@ void main() {
         // act
         final result = await repository.loginWithLinkedIn(tLinkedInToken);
         // assert
-        expect(result, equals(const Left(ServerFailure('LinkedIn login failed'))));
+        expect(
+            result, equals(const Left(ServerFailure('LinkedIn login failed'))));
       },
     );
   });
@@ -159,8 +162,43 @@ void main() {
         // act
         final result = await repository.registerWithLinkedIn(tLinkedInToken);
         // assert
-        expect(result, equals(const Left(ServerFailure('LinkedIn registration failed'))));
+        expect(result,
+            equals(const Left(ServerFailure('LinkedIn registration failed'))));
       },
     );
+  });
+
+  group('password reset mapping', () {
+    test('forgot and resend return success without exposing account existence',
+        () async {
+      when(() => mockRemoteDataSource.forgotPassword(tEmail))
+          .thenAnswer((_) async {});
+      when(() => mockRemoteDataSource.resendOtp(tEmail))
+          .thenAnswer((_) async {});
+      expect(await repository.forgotPassword(tEmail), const Right(null));
+      expect(await repository.resendOtp(tEmail), const Right(null));
+    });
+
+    test('typed reset error is preserved without backend text', () async {
+      when(() => mockRemoteDataSource.resetPassword(
+            email: any(named: 'email'),
+            otp: any(named: 'otp'),
+            newPassword: any(named: 'newPassword'),
+            confirmPassword: any(named: 'confirmPassword'),
+          )).thenThrow(PasswordResetApiException(
+        PasswordResetProblem.expiredOtp,
+        fields: {'otp'},
+      ));
+      final result = await repository.resetPassword(
+        email: tEmail,
+        otp: '012345',
+        newPassword: 'password123',
+        confirmPassword: 'password123',
+      );
+      expect(
+          result,
+          const Left(PasswordResetFailure(PasswordResetProblem.expiredOtp,
+              fields: {'otp'})));
+    });
   });
 }

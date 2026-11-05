@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 
 class ItemDetailScreen extends StatelessWidget {
@@ -10,7 +11,7 @@ class ItemDetailScreen extends StatelessWidget {
       backgroundColor: AppColors.white,
       appBar: AppBar(
         title: Text(
-          'تفاصيل العنصر',
+          AppLocalizations.tr(context, 'item_details'),
           style: AppTypography.bold(fontSize: 20, color: AppColors.fontColor),
         ),
       ),
@@ -34,7 +35,7 @@ class ItemDetailScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Item Title',
+                    AppLocalizations.tr(context, 'item_name'),
                     style:
                         AppTypography.bold(fontSize: 24, color: AppColors.fontColor),
                   ),
@@ -46,13 +47,13 @@ class ItemDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Description',
+                    AppLocalizations.tr(context, 'description'),
                     style:
                         AppTypography.regular(fontSize: 16, color: AppColors.fontColor),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+                    AppLocalizations.tr(context, 'item_body'),
                     style:
                         AppTypography.regular(fontSize: 14, color: AppColors.hintColor),
                   ),

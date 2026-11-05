@@ -1,10 +1,14 @@
 import 'package:dio/dio.dart';
+
+import '../../../../core/error/exceptions.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/dio_client.dart';
-import '../../../../core/error/exceptions.dart';
-import '../models/interview_start_response_model.dart';
+import '../models/answer_evaluation_model.dart';
+import '../models/interview_finish_result_model.dart';
 import '../models/interview_report_model.dart';
 import '../models/interview_simulation_history_model.dart';
+import '../models/simulation_history_count_model.dart';
+import '../models/interview_start_response_model.dart';
 
 abstract class InterviewRemoteDataSource {
   Future<InterviewStartResponseModel> startByJob({
@@ -14,6 +18,7 @@ abstract class InterviewRemoteDataSource {
     required String language,
     required String simulationType,
     required int numQuestions,
+    String? cvId,
   });
 
   Future<InterviewStartResponseModel> startByJobDescription({
@@ -23,25 +28,37 @@ abstract class InterviewRemoteDataSource {
     required String language,
     required String simulationType,
     required int numQuestions,
+    String? cvId,
   });
 
-  Future<void> submitAnswer({
+  Future<InterviewStartResponseModel> retryGeneration(String simulationId);
+
+  Future<AnswerEvaluationModel> submitAnswer({
     required String questionId,
     required bool skipped,
     String? answerText,
   });
 
-  Future<void> finishInterview(String simulationId);
+  Future<InterviewFinishResultModel> finishInterview(String simulationId);
 
   Future<InterviewReportModel> getReport(String simulationId);
 
   Future<List<InterviewSimulationHistoryModel>> getSimulationsHistory();
+
+  Future<SimulationHistoryCountModel> getSimulationHistoryCount();
 }
 
 class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
   final DioClient client;
+
+  /// Question generation waits on the provider, which may retry once.
+  static const Duration aiReceiveTimeout = Duration(seconds: 150);
+
   InterviewRemoteDataSourceImpl({required this.client});
+
   Dio get _dio => client.dio;
+
+  Options get _aiOptions => Options(receiveTimeout: aiReceiveTimeout);
 
   @override
   Future<InterviewStartResponseModel> startByJob({
@@ -51,25 +68,17 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
     required String language,
     required String simulationType,
     required int numQuestions,
-  }) async {
-    try {
-      final response = await _dio.post(ApiEndpoints.interviewStartByJob, data: {
-        'job_field': jobField,
-        'interview_type': interviewType,
-        'difficulty': difficulty,
-        'language': language,
-        'simulation_type': simulationType,
-        'num_questions': numQuestions,
-      });
-      return InterviewStartResponseModel.fromJson(
-          response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
-    } catch (e) {
-      throw ServerException(e.toString());
-    }
+    String? cvId,
+  }) {
+    return _start(ApiEndpoints.interviewStartByJob, {
+      'job_field': jobField,
+      'interview_type': interviewType,
+      'difficulty': difficulty,
+      'language': language,
+      'simulation_type': simulationType,
+      'num_questions': numQuestions,
+      if (cvId != null) 'cv_id': cvId,
+    });
   }
 
   @override
@@ -80,76 +89,126 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
     required String language,
     required String simulationType,
     required int numQuestions,
-  }) async {
+    String? cvId,
+  }) {
+    return _start(ApiEndpoints.interviewStartByJobDesc, {
+      'job_description': jobDescription,
+      'interview_type': interviewType,
+      'difficulty': difficulty,
+      'language': language,
+      'simulation_type': simulationType,
+      'num_questions': numQuestions,
+      if (cvId != null) 'cv_id': cvId,
+    });
+  }
+
+  @override
+  Future<InterviewStartResponseModel> retryGeneration(
+    String simulationId,
+  ) {
+    return _start(ApiEndpoints.interviewRetry(simulationId), const {});
+  }
+
+  Future<InterviewStartResponseModel> _start(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
     try {
-      final response =
-          await _dio.post(ApiEndpoints.interviewStartByJobDesc, data: {
-        'job_description': jobDescription,
-        'interview_type': interviewType,
-        'difficulty': difficulty,
-        'language': language,
-        'simulation_type': simulationType,
-        'num_questions': numQuestions,
-      });
+      final response = await _dio.post(
+        path,
+        data: body.isEmpty ? null : body,
+        options: _aiOptions,
+      );
       return InterviewStartResponseModel.fromJson(
-          response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
-    } catch (e) {
-      throw ServerException(e.toString());
+        response.data as Map<String, dynamic>,
+      );
+    } on DioException catch (error) {
+      throw _startException(error);
+    } catch (error) {
+      throw InterviewStartException(ServerException(error.toString()));
     }
   }
 
   @override
-  Future<void> submitAnswer({
+  Future<AnswerEvaluationModel> submitAnswer({
     required String questionId,
     required bool skipped,
     String? answerText,
   }) async {
     try {
-      await _dio.post(ApiEndpoints.interviewSubmitAnswer, data: {
-        'question_id': questionId,
-        'skipped': skipped,
-        if (answerText != null) 'answer_text': answerText,
-      });
-    } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
-    } catch (e) {
-      throw ServerException(e.toString());
+      final response = await _dio.post(
+        ApiEndpoints.interviewSubmitAnswer,
+        data: {
+          'question_id': questionId,
+          'skipped': skipped,
+          if (!skipped && answerText != null) 'answer_text': answerText,
+        },
+        options: _aiOptions,
+      );
+      return AnswerEvaluationModel.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+    } on DioException catch (error) {
+      throw _exception(error);
+    } catch (error) {
+      throw ServerException(error.toString());
     }
   }
 
   @override
-  Future<void> finishInterview(String simulationId) async {
+  Future<InterviewFinishResultModel> finishInterview(
+    String simulationId,
+  ) async {
     try {
-      await _dio.post(ApiEndpoints.interviewFinish,
-          data: {'simulation_id': simulationId});
-    } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
-    } catch (e) {
-      throw ServerException(e.toString());
+      final response = await _dio.post(
+        ApiEndpoints.interviewFinish,
+        data: {'simulation_id': simulationId},
+        options: _aiOptions,
+      );
+      return InterviewFinishResultModel.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+    } on DioException catch (error) {
+      throw _exception(error);
+    } catch (error) {
+      throw ServerException(error.toString());
     }
   }
 
   @override
   Future<InterviewReportModel> getReport(String simulationId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.interviewReport,
-          queryParameters: {'simulation_id': simulationId});
+      final response = await _dio.get(
+        ApiEndpoints.interviewReport,
+        queryParameters: {'simulation_id': simulationId},
+        options: _aiOptions,
+      );
       return InterviewReportModel.fromJson(
-          response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
-    } catch (e) {
-      throw ServerException(e.toString());
+        response.data as Map<String, dynamic>,
+      );
+    } on DioException catch (error) {
+      throw _exception(error);
+    } catch (error) {
+      throw ServerException(error.toString());
+    }
+  }
+
+  @override
+  Future<SimulationHistoryCountModel> getSimulationHistoryCount() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.interviewHistoryCount);
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw ServerException('Malformed simulation history count');
+      }
+      return SimulationHistoryCountModel.fromJson(data);
+    } on DioException catch (error) {
+      throw _exception(error);
+    } on FormatException {
+      throw ServerException('Malformed simulation history count');
+    } catch (error) {
+      if (error is AppException) rethrow;
+      throw ServerException(error.toString());
     }
   }
 
@@ -159,15 +218,28 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
       final response = await _dio.get(ApiEndpoints.interviewHistory);
       final list = response.data as List<dynamic>? ?? [];
       return list
-          .map((e) => InterviewSimulationHistoryModel.fromJson(
-              e as Map<String, dynamic>))
+          .map((item) => InterviewSimulationHistoryModel.fromJson(
+                item as Map<String, dynamic>,
+              ))
           .toList();
-    } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
-    } catch (e) {
-      throw ServerException(e.toString());
+    } on DioException catch (error) {
+      throw _exception(error);
+    } catch (error) {
+      throw ServerException(error.toString());
     }
+  }
+
+  InterviewStartException _startException(DioException error) {
+    final header = error.response?.headers.value('x-simulation-id')?.trim();
+    return InterviewStartException(
+      _exception(error),
+      simulationId: header == null || header.isEmpty ? null : header,
+    );
+  }
+
+  AppException _exception(DioException error) {
+    final mapped = error.error;
+    if (mapped is AppException) return mapped;
+    return ServerException(error.message ?? 'Unknown error');
   }
 }

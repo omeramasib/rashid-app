@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:rashed_app/Presentation/utils/images.dart';
-import 'package:rashed_app/app/routes_name.dart';
-import 'package:rashed_app/core/theme/theme.dart';
+
+import '../../../../Presentation/utils/images.dart';
+import '../../../../app/routes_name.dart';
+import '../../../../app_localizations.dart';
+import '../../../../core/localization/app_text_direction.dart';
+import '../../../../core/theme/theme.dart';
+import '../../../home/presentation/cubit/home_cubit.dart';
+import '../../domain/entities/interview_finish_result.dart';
+import '../../domain/entities/interview_report.dart';
+import '../cubit/interview_cubit.dart';
+import '../interview_error_text.dart';
+import '../widgets/interview_widgets.dart';
 
 class InterviewResultScreen extends StatelessWidget {
   const InterviewResultScreen({super.key});
@@ -10,159 +20,298 @@ class InterviewResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: AppTextDirection.of(context),
       child: Scaffold(
         backgroundColor: AppColors.white,
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                _buildProgress(5),
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(12),
+          child: BlocBuilder<InterviewCubit, InterviewState>(
+            builder: (context, state) {
+              final result = state.finishResult;
+              return ListView(
+                padding: const EdgeInsets.all(14),
+                children: [
+                  InterviewProgressBar(
+                    current: result?.totalQuestions ?? state.questions.length,
+                    total: result?.totalQuestions ?? state.questions.length,
                   ),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        width: 150,
-                        height: 150,
-                        child: SvgPicture.asset(ImageManages.rashedImage),
+                  const SizedBox(height: 16),
+                  if (result == null)
+                    Text(
+                      AppLocalizations.tr(context, 'interview_empty_session'),
+                      style: AppTypography.regular(
+                        fontSize: 16,
+                        color: AppColors.fontColor,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'ممتاز',
-                        style: AppTypography.regular(
-                          fontSize: 20,
-                          color: AppColors.primarySet2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'أداء رائع! أنت جاهز تمامًا لمقابلة العمل.\nاستمر في الإبداع!',
-                        textAlign: TextAlign.center,
-                        style: AppTypography.regular(
-                          fontSize: 16,
-                          color: AppColors.hintColor,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _linkedinButton(),
-                      const SizedBox(height: 12),
-                      _primaryButton(
-                        text: 'استمر بتحسين مهاراتك',
-                        onTap: () {},
-                      ),
-                    ],
+                    )
+                  else
+                    _summary(context, result),
+                  const SizedBox(height: 16),
+                  _report(context, state),
+                  const SizedBox(height: 16),
+                  _share(context),
+                  const SizedBox(height: 12),
+                  InterviewActionButton(
+                    key: const Key('interview_keep_improving'),
+                    label: AppLocalizations.tr(context, 'keep_improving'),
+                    onPressed: () {
+                      context.read<InterviewCubit>().prepareAnother();
+                      Navigator.popUntil(
+                        context,
+                        (route) =>
+                            route.settings.name == RoutesName.simulationSetup ||
+                            route.isFirst,
+                      );
+                    },
                   ),
-                ),
-                const SizedBox(height: 12),
-                _primaryButton(
-                  text: 'العودة للرئيسية',
-                  onTap: () => Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    RoutesName.home,
-                    (route) => false,
+                  const SizedBox(height: 12),
+                  InterviewActionButton(
+                    key: const Key('interview_back_home'),
+                    label: AppLocalizations.tr(context, 'back_home'),
+                    primary: false,
+                    onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      RoutesName.home,
+                      (route) => false,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildProgress(int current) {
-    const total = 5;
+  Widget _summary(BuildContext context, InterviewFinishResult result) {
+    final band = performanceBandLabel(context, result.performanceStatus);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          '$current من $total',
-          style: AppTypography.regular(fontSize: 12, color: AppColors.fontColor),
+        SizedBox(
+          width: 120,
+          height: 120,
+          child: SvgPicture.asset(ImageManages.rashedImage),
         ),
-        const SizedBox(height: 4),
-        Container(
-          height: 14,
-          decoration: BoxDecoration(
-            color: AppColors.inputBg,
-            borderRadius: BorderRadius.circular(100),
-          ),
-          alignment: Alignment.centerRight,
-          child: FractionallySizedBox(
-            widthFactor: current / total,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(100),
-              ),
+        if (band != null && band.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            band,
+            key: const Key('interview_band'),
+            style: AppTypography.regular(
+              fontSize: 20,
+              color: AppColors.primarySet2,
             ),
           ),
-        ),
+        ],
+        if (result.score != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            '${result.score}',
+            key: const Key('interview_result_score'),
+            style: AppTypography.bold(fontSize: 32, color: AppColors.fontColor),
+          ),
+        ],
+        const SizedBox(height: 8),
+        _counts(context, result),
+        if (result.reportSummary != null &&
+            result.reportSummary!.trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            result.reportSummary!,
+            key: const Key('interview_result_summary'),
+            textAlign: TextAlign.center,
+            style: AppTypography.regular(
+              fontSize: 16,
+              color: AppColors.hintColor,
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _linkedinButton() {
-    return Container(
-      width: double.infinity,
-      height: 54,
-      decoration: BoxDecoration(
-        color: const Color(0xFF3E6DDD),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _counts(BuildContext context, InterviewFinishResult result) {
+    final lines = <String>[
+      if (result.totalQuestions != null)
+        AppLocalizations.tr(context, 'interview_total_count', {
+          'count': '${result.totalQuestions}',
+        }),
+      if (result.answeredQuestions != null)
+        AppLocalizations.tr(context, 'interview_answered_count', {
+          'count': '${result.answeredQuestions}',
+        }),
+      if (result.skippedQuestions != null)
+        AppLocalizations.tr(context, 'interview_skipped_count', {
+          'count': '${result.skippedQuestions}',
+        }),
+      if (result.unansweredQuestions != null)
+        AppLocalizations.tr(context, 'interview_unanswered_count', {
+          'count': '${result.unansweredQuestions}',
+        }),
+    ];
+    if (lines.isEmpty) return const SizedBox.shrink();
+    return Column(
+      children: [
+        for (final line in lines)
+          Text(
+            line,
+            style:
+                AppTypography.regular(fontSize: 14, color: AppColors.fontColor),
+          ),
+      ],
+    );
+  }
+
+  Widget _report(BuildContext context, InterviewState state) {
+    if (state.reportLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(
+          child:
+              CircularProgressIndicator(key: Key('interview_report_loading')),
+        ),
+      );
+    }
+    if (state.reportFailure != null) {
+      return InterviewErrorBanner(
+        message: interviewErrorText(context, state.reportFailure!),
+        actionLabel: AppLocalizations.tr(context, 'interview_report_retry'),
+        onAction: () => context.read<InterviewCubit>().loadReport(),
+      );
+    }
+    final report = state.report;
+    if (report == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (state.finishResult?.reportSummary == null &&
+            report.reportSummary != null &&
+            report.reportSummary!.trim().isNotEmpty)
+          Text(
+            report.reportSummary!,
+            key: const Key('interview_result_summary'),
+            style:
+                AppTypography.regular(fontSize: 16, color: AppColors.hintColor),
+          ),
+        _listSection(context, 'interview_strengths', report.strengths),
+        _listSection(context, 'interview_improvements', report.improvements),
+        _listSection(
+          context,
+          'interview_recommendations',
+          report.recommendations,
+        ),
+        if (report.questions.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            AppLocalizations.tr(context, 'interview_question_review'),
+            style: AppTypography.bold(fontSize: 16, color: AppColors.fontColor),
+          ),
+          for (final question in report.questions) _question(context, question),
+        ],
+      ],
+    );
+  }
+
+  Widget _listSection(
+    BuildContext context,
+    String titleKey,
+    List<String>? values,
+  ) {
+    if (values == null || values.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        key: Key(titleKey),
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'شارك نتيجتك على LinkedIn',
-            style: AppTypography.regular(fontSize: 17, color: AppColors.white),
+            AppLocalizations.tr(context, titleKey),
+            style:
+                AppTypography.regular(fontSize: 14, color: AppColors.hintColor),
           ),
-          const SizedBox(width: 8),
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(6),
+          for (final value in values)
+            Text(
+              value,
+              style: AppTypography.regular(
+                  fontSize: 14, color: AppColors.fontColor),
             ),
-            alignment: Alignment.center,
-            child: const Text(
-              'in',
-              style: TextStyle(
-                color: Color(0xFF3E6DDD),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _primaryButton({required String text, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          text,
-          style: AppTypography.bold(fontSize: 16, color: AppColors.white),
-        ),
+  Widget _question(BuildContext context, InterviewReportQuestion question) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            question.questionText,
+            style:
+                AppTypography.regular(fontSize: 14, color: AppColors.fontColor),
+          ),
+          if (question.isSkipped)
+            Text(
+              AppLocalizations.tr(context, 'interview_skipped'),
+              style: AppTypography.regular(
+                  fontSize: 13, color: AppColors.hintColor),
+            )
+          else if (question.evaluationScore != null)
+            Text(
+              AppLocalizations.tr(context, 'interview_question_score', {
+                'score': '${question.evaluationScore}',
+              }),
+              style: AppTypography.regular(
+                  fontSize: 13, color: AppColors.fontColor),
+            ),
+          if (question.suggestedAnswer != null &&
+              question.suggestedAnswer!.trim().isNotEmpty)
+            Text(
+              question.suggestedAnswer!,
+              style: AppTypography.regular(
+                  fontSize: 13, color: AppColors.hintColor),
+            ),
+        ],
       ),
+    );
+  }
+
+  Widget _share(BuildContext context) {
+    return BlocBuilder<HomeCubit, HomeState>(
+      builder: (context, homeState) {
+        final sharing = homeState is HomeSharing;
+        final status = homeState is HomeShared
+            ? AppLocalizations.tr(context, 'interview_share_sent')
+            : homeState is HomeError
+                ? AppLocalizations.message(context, homeState.message)
+                : null;
+        return Column(
+          children: [
+            InterviewActionButton(
+              key: const Key('interview_share_button'),
+              label: AppLocalizations.tr(context, 'share_linkedin_result'),
+              busy: sharing,
+              onPressed: sharing
+                  ? null
+                  : () => context.read<HomeCubit>().shareLastInterviewResult(),
+            ),
+            if (status != null && status.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                status,
+                key: const Key('interview_share_status'),
+                style: AppTypography.regular(
+                  fontSize: 13,
+                  color: homeState is HomeError
+                      ? AppColors.error
+                      : AppColors.fontColor,
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

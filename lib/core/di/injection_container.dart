@@ -1,4 +1,15 @@
+import 'dart:async';
+
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../ads/ad_consent_service.dart';
+import '../ads/ad_frequency_cap.dart';
+import '../ads/admob_config.dart';
+import '../ads/ads_bootstrap.dart';
+import '../ads/app_foreground.dart';
+import '../ads/interview_ad_gate.dart';
+import '../ads/interstitial_ad_service.dart';
+import '../localization/localization_bloc.dart';
 import '../network/dio_client.dart';
 import '../auth/clerk_auth_service.dart';
 import '../auth/clerk_config.dart';
@@ -13,6 +24,7 @@ import '../../features/auth/presentation/cubit/register/register_cubit.dart';
 import '../../Presentation/utils/api_endpoints.dart';
 import '../../Presentation/utils/api_provider.dart';
 import '../../features/auth/domain/usecases/forgot_password_usecase.dart';
+import '../../features/auth/domain/usecases/resend_otp_usecase.dart';
 import '../../features/auth/domain/usecases/reset_password_usecase.dart';
 import '../../features/auth/domain/usecases/change_password_usecase.dart';
 import '../../features/auth/domain/usecases/logout_usecase.dart';
@@ -25,11 +37,13 @@ import '../../features/linkedin/domain/repositories/linkedin_repository.dart';
 import '../../features/linkedin/domain/usecases/connect_linkedin_usecase.dart';
 import '../../features/linkedin/domain/usecases/disconnect_linkedin_usecase.dart';
 import '../../features/linkedin/presentation/cubit/linkedin_cubit.dart';
+import '../../features/cv/data/datasources/cv_local_datasource.dart';
 import '../../features/cv/data/datasources/cv_remote_datasource.dart';
 import '../../features/cv/data/repositories/cv_repository_impl.dart';
 import '../../features/cv/domain/repositories/cv_repository.dart';
 import '../../features/cv/domain/usecases/analyze_cv_usecase.dart';
 import '../../features/cv/domain/usecases/delete_skill_usecase.dart';
+import '../../features/cv/domain/usecases/get_my_cv_profile_usecase.dart';
 import '../../features/cv/domain/usecases/update_skills_usecase.dart';
 import '../../features/cv/domain/usecases/upload_cv_usecase.dart';
 import '../../features/cv/presentation/cubit/cv_cubit.dart';
@@ -37,21 +51,31 @@ import '../../features/simulation/data/datasources/interview_remote_datasource.d
 import '../../features/simulation/data/repositories/interview_repository_impl.dart';
 import '../../features/simulation/domain/repositories/interview_repository.dart';
 import '../../features/simulation/domain/usecases/finish_interview_usecase.dart';
+import '../../features/simulation/domain/usecases/retry_interview_generation_usecase.dart';
 import '../../features/simulation/domain/usecases/get_interview_report_usecase.dart';
+import '../../features/simulation/domain/usecases/get_simulation_history_count_usecase.dart';
 import '../../features/simulation/domain/usecases/get_simulations_history_usecase.dart';
 import '../../features/simulation/domain/usecases/start_interview_by_job_description_usecase.dart';
 import '../../features/simulation/domain/usecases/start_interview_by_job_usecase.dart';
 import '../../features/simulation/domain/usecases/submit_answer_usecase.dart';
 import '../../features/simulation/presentation/cubit/interview_cubit.dart';
+import '../../features/simulation/presentation/cubit/interview_entry_cubit.dart';
 import '../../features/home/data/datasources/home_remote_datasource.dart';
 import '../../features/home/data/repositories/home_repository_impl.dart';
 import '../../features/home/domain/repositories/home_repository.dart';
 import '../../features/home/domain/usecases/share_interview_result_usecase.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
+import '../../features/home/presentation/cubit/simulation_history_count_cubit.dart';
 
 final sl = GetIt.instance;
 
 Future<void> init() async {
+  final preferences = await SharedPreferences.getInstance();
+  sl.registerSingleton<SharedPreferences>(preferences);
+  sl.registerLazySingleton(
+    () => LocalizationBloc(preferences: sl()),
+  );
+
   //! Features - Auth
   // Cubits
   sl.registerFactory(
@@ -82,6 +106,7 @@ Future<void> init() async {
   sl.registerFactory(
     () => PasswordCubit(
       forgotPasswordUseCase: sl(),
+      resendOtpUseCase: sl(),
       resetPasswordUseCase: sl(),
     ),
   );
@@ -95,6 +120,7 @@ Future<void> init() async {
 
   // Use cases - Auth Extras
   sl.registerLazySingleton(() => ForgotPasswordUseCase(sl()));
+  sl.registerLazySingleton(() => ResendOtpUseCase(sl()));
   sl.registerLazySingleton(() => ResetPasswordUseCase(sl()));
   sl.registerLazySingleton(() => ChangePasswordUseCase(sl()));
   sl.registerLazySingleton(() => LogoutUseCase(sl()));
@@ -141,11 +167,15 @@ Future<void> init() async {
       analyzeCvUseCase: sl(),
       updateSkillsUseCase: sl(),
       deleteSkillUseCase: sl(),
+      getMyCvProfileUseCase: sl(),
+      localDataSource: sl(),
+      secureStorage: sl(),
     ),
   );
 
   // Usecases
   sl.registerLazySingleton(() => UploadCvUseCase(sl()));
+  sl.registerLazySingleton(() => GetMyCvProfileUseCase(sl()));
   sl.registerLazySingleton(() => AnalyzeCvUseCase(sl()));
   sl.registerLazySingleton(() => UpdateSkillsUseCase(sl()));
   sl.registerLazySingleton(() => DeleteSkillUseCase(sl()));
@@ -159,27 +189,39 @@ Future<void> init() async {
   sl.registerLazySingleton<CvRemoteDataSource>(
     () => CvRemoteDataSourceImpl(client: sl()),
   );
+  sl.registerLazySingleton(
+    () => CvLocalDataSource(storage: sl()),
+  );
 
   //! Features - Interview
   // Cubit
   sl.registerFactory(
+    () => InterviewEntryCubit(getMyCvProfileUseCase: sl()),
+  );
+  sl.registerFactory(
     () => InterviewCubit(
       startInterviewByJobUseCase: sl(),
       startInterviewByJobDescriptionUseCase: sl(),
+      retryInterviewGenerationUseCase: sl(),
       submitAnswerUseCase: sl(),
       finishInterviewUseCase: sl(),
       getInterviewReportUseCase: sl(),
       getSimulationsHistoryUseCase: sl(),
+      getMyCvProfileUseCase: sl(),
+      adGate: sl(),
+      foreground: sl(),
     ),
   );
 
   // Usecases
   sl.registerLazySingleton(() => StartInterviewByJobUseCase(sl()));
   sl.registerLazySingleton(() => StartInterviewByJobDescriptionUseCase(sl()));
+  sl.registerLazySingleton(() => RetryInterviewGenerationUseCase(sl()));
   sl.registerLazySingleton(() => SubmitAnswerUseCase(sl()));
   sl.registerLazySingleton(() => FinishInterviewUseCase(sl()));
   sl.registerLazySingleton(() => GetInterviewReportUseCase(sl()));
   sl.registerLazySingleton(() => GetSimulationsHistoryUseCase(sl()));
+  sl.registerLazySingleton(() => GetSimulationHistoryCountUseCase(sl()));
 
   // Repository
   sl.registerLazySingleton<InterviewRepository>(
@@ -196,6 +238,12 @@ Future<void> init() async {
   sl.registerFactory(
     () => HomeCubit(shareInterviewResultUseCase: sl()),
   );
+  sl.registerFactory(
+    () => SimulationHistoryCountCubit(
+      getSimulationHistoryCount: sl(),
+      secureStorage: sl(),
+    ),
+  );
 
   // Usecases
   sl.registerLazySingleton(() => ShareInterviewResultUseCase(sl()));
@@ -211,6 +259,59 @@ Future<void> init() async {
   );
 
   //! Core
+  final adMobConfig = AdMobConfig.fromEnvironment();
+  sl.registerSingleton<AdMobConfig>(adMobConfig);
+  sl.registerLazySingleton<AppForegroundSignal>(WidgetsAppForeground.new);
+  sl.registerLazySingleton<AdConsentService>(
+    () => adMobConfig.requestsAds
+        ? UmpAdConsentService()
+        : const DeniedAdConsentService(),
+  );
+  sl.registerLazySingleton(
+    () => AdFrequencyCap(
+      preferences: sl(),
+      cooldown: adMobConfig.cooldown,
+    ),
+  );
+  void recordImpression() {
+    unawaited(sl<AdFrequencyCap>().recordImpression());
+  }
+
+  sl.registerLazySingleton<InterstitialAdService>(
+    () => createInterstitialAdService(
+      config: adMobConfig,
+      foreground: sl(),
+      placement: AdPlacement.interviewStart,
+      onImpression: recordImpression,
+    ),
+  );
+  sl.registerLazySingleton<InterstitialAdService>(
+    () => createInterstitialAdService(
+      config: adMobConfig,
+      foreground: sl(),
+      placement: AdPlacement.interviewFinish,
+      onImpression: recordImpression,
+    ),
+    instanceName: AdPlacement.interviewFinish.name,
+  );
+  sl.registerLazySingleton<AdsBootstrap>(
+    () => AdsBootstrap(
+      config: adMobConfig,
+      consent: sl(),
+      initializeSdk:
+          adMobConfig.requestsAds ? GoogleMobileAdsInitializer().call : null,
+    ),
+  );
+  sl.registerLazySingleton<InterviewAdGate>(
+    () => MobileAdsInterviewAdGate(
+      bootstrap: sl(),
+      consent: sl(),
+      frequencyCap: sl(),
+      ads: sl(),
+      finishAds: sl(instanceName: AdPlacement.interviewFinish.name),
+    ),
+  );
+
   // Clerk Auth Service
   sl.registerLazySingleton<ClerkAuthService>(
     () => ClerkConfig.isConfigured
@@ -222,7 +323,12 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SecureStorageService());
 
   // Network
-  sl.registerLazySingleton(() => DioClient(storage: sl()));
+  sl.registerLazySingleton(
+    () => DioClient(
+      storage: sl(),
+      languageCode: () => sl<LocalizationBloc>().state.locale.languageCode,
+    ),
+  );
 
   // Keep existing utils if needed for other features
   sl.registerLazySingleton(() => ApiEndpoints());

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 import 'item_detail_screen.dart';
 
@@ -11,7 +12,7 @@ class ItemListScreen extends StatelessWidget {
       backgroundColor: AppColors.white,
       appBar: AppBar(
         title: Text(
-          'العناصر',
+          AppLocalizations.tr(context, 'items'),
           style: AppTypography.bold(fontSize: 20, color: AppColors.fontColor),
         ),
       ),
@@ -27,16 +28,24 @@ class ItemListScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               title: Text(
-                'Item ${index + 1}',
+                AppLocalizations.tr(context, 'item_title', {
+                  'index': '${index + 1}',
+                }),
                 style:
                     AppTypography.bold(fontSize: 16, color: AppColors.fontColor),
               ),
               subtitle: Text(
-                'Description for item ${index + 1}',
+                AppLocalizations.tr(context, 'item_description', {
+                  'index': '${index + 1}',
+                }),
                 style:
                     AppTypography.regular(fontSize: 14, color: AppColors.hintColor),
               ),
-              trailing: const Icon(Icons.chevron_left),
+              trailing: Icon(
+                Directionality.of(context) == TextDirection.rtl
+                    ? Icons.chevron_left
+                    : Icons.chevron_right,
+              ),
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ItemDetailScreen()),

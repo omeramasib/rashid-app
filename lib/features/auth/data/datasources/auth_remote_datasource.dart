@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/error/exceptions.dart';
+import '../../../../core/error/password_reset_problem.dart';
 import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
@@ -30,9 +31,17 @@ abstract class AuthRemoteDataSource {
   /// POST /auth/forgot-password
   Future<void> forgotPassword(String email);
 
+  /// POST /auth/resend-otp
+  Future<void> resendOtp(String email);
+
   /// Reset password
   /// POST /auth/reset-password
-  Future<void> resetPassword(String token, String newPassword);
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+    required String confirmPassword,
+  });
 
   /// Change password
   /// POST /auth/change-password
@@ -157,34 +166,104 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Future<void> forgotPassword(String email) async {
-    try {
-      await _dio.post(
-        ApiEndpoints.forgotPassword,
-        data: {'email': email},
-      );
-    } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
-    } catch (e) {
-      throw ServerException(e.toString());
-    }
+    await _postPasswordRequest(ApiEndpoints.forgotPassword, {'email': email});
   }
 
   @override
-  Future<void> resetPassword(String token, String newPassword) async {
+  Future<void> resendOtp(String email) async {
+    await _postPasswordRequest(ApiEndpoints.resendOtp, {'email': email});
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    await _postPasswordRequest(ApiEndpoints.resetPassword, {
+      'email': email,
+      'otp': otp,
+      'new_password': newPassword,
+      'confirm_password': confirmPassword,
+    });
+  }
+
+  Future<void> _postPasswordRequest(
+      String path, Map<String, String> payload) async {
     try {
-      await _dio.post(
-        ApiEndpoints.resetPassword,
-        data: {'token': token, 'new_password': newPassword},
-      );
+      final response = await _dio.post(path, data: payload);
+      final body = response.data;
+      if (response.statusCode != 200 ||
+          body is! Map<String, dynamic> ||
+          body['status'] != 'success') {
+        throw PasswordResetApiException(PasswordResetProblem.unknown);
+      }
     } on DioException catch (e) {
-      throw e.error is AppException
-          ? e.error as AppException
-          : ServerException(e.message ?? 'Unknown error');
-    } catch (e) {
-      throw ServerException(e.toString());
+      throw _passwordException(e);
     }
+  }
+
+  PasswordResetApiException _passwordException(DioException error) {
+    final code = error.response?.statusCode;
+    final data = error.response?.data;
+    final detail = data is Map ? data['detail'] : null;
+
+    if (code == 400) {
+      final text = detail is String ? detail.toLowerCase() : '';
+      if (text.contains('confirm') && text.contains('match')) {
+        return PasswordResetApiException(
+          PasswordResetProblem.confirmationMismatch,
+          fields: {'confirm_password'},
+        );
+      }
+      if (text.contains('expir') &&
+          (text.contains('code') || text.contains('otp'))) {
+        return PasswordResetApiException(
+          PasswordResetProblem.expiredOtp,
+          fields: {'otp'},
+        );
+      }
+      if (text.contains('code') || text.contains('otp')) {
+        return PasswordResetApiException(
+          PasswordResetProblem.invalidOtp,
+          fields: {'otp'},
+        );
+      }
+    }
+    if (code == 422) {
+      final fields = <String>{};
+      if (detail is List) {
+        for (final item in detail) {
+          if (item is Map && item['loc'] is List) {
+            final location = item['loc'] as List;
+            for (final field in location) {
+              if (field is String &&
+                  const {'email', 'otp', 'new_password', 'confirm_password'}
+                      .contains(field)) {
+                fields.add(field);
+              }
+            }
+          }
+        }
+      }
+      return PasswordResetApiException(
+        PasswordResetProblem.validation,
+        fields: fields,
+      );
+    }
+    if (code == 500) {
+      return PasswordResetApiException(PasswordResetProblem.server);
+    }
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.receiveTimeout) {
+      return PasswordResetApiException(PasswordResetProblem.timeout);
+    }
+    if (error.type == DioExceptionType.connectionError) {
+      return PasswordResetApiException(PasswordResetProblem.offline);
+    }
+    return PasswordResetApiException(PasswordResetProblem.unknown);
   }
 
   @override

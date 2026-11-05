@@ -30,8 +30,16 @@ abstract class AuthRepository {
   /// Forgot password
   Future<Either<Failure, void>> forgotPassword(String email);
 
+  /// Request another code after the server cooldown.
+  Future<Either<Failure, void>> resendOtp(String email);
+
   /// Reset password
-  Future<Either<Failure, void>> resetPassword(String token, String newPassword);
+  Future<Either<Failure, void>> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+    required String confirmPassword,
+  });
 
   /// Change password
   Future<Either<Failure, void>> changePassword(

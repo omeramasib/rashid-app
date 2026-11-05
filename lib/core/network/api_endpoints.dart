@@ -1,5 +1,11 @@
 class ApiEndpoints {
-  static const String baseUrl = 'https://rashed-backend.onrender.com';
+  static const String deployedBaseUrl = 'https://rashed-backend.vercel.app';
+
+  static String get baseUrl {
+    const configuredUrl = String.fromEnvironment('API_BASE_URL');
+    if (configuredUrl.isNotEmpty) return configuredUrl;
+    return deployedBaseUrl;
+  }
 
   // Auth
   static const String loginEmail = '/auth/login/email';
@@ -7,6 +13,7 @@ class ApiEndpoints {
   static const String loginLinkedIn = '/auth/login/linkedin';
   static const String registerLinkedIn = '/auth/register/linkedin';
   static const String forgotPassword = '/auth/forgot-password';
+  static const String resendOtp = '/auth/resend-otp';
   static const String resetPassword = '/auth/reset-password';
   static const String changePassword = '/auth/change-password';
   static const String logout = '/auth/logout';
@@ -19,6 +26,7 @@ class ApiEndpoints {
   // CV
   static const String cvUpload = '/api/v1/cv/upload';
   static const String cvAnalyze = '/api/v1/cv/analyze';
+  static const String cvMe = '/api/v1/cv/me';
   static const String cvUpdateSkills = '/api/v1/cv/skills/update-skills';
   static const String cvDeleteSkill = '/api/v1/cv/skills/delete';
 
@@ -30,6 +38,10 @@ class ApiEndpoints {
   static const String interviewFinish = '/api/v1/interview/finish';
   static const String interviewReport = '/api/v1/interview/report';
   static const String interviewHistory = '/api/v1/interview/simulations';
+  static const String interviewHistoryCount = '/api/v1/interview/history/count';
+
+  static String interviewRetry(String simulationId) =>
+      '/api/v1/interview/simulations/$simulationId/retry';
 
   // Home
   static const String shareInterviewResult =

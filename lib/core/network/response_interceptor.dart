@@ -12,8 +12,10 @@ class ResponseInterceptor extends Interceptor {
     // Only unwrap when the envelope shape is present.
     if (body is Map<String, dynamic> && body.containsKey('status')) {
       if (body['status'] == 'success') {
-        // Replace response.data with just the inner "data" field
-        response.data = body['data'] ?? body;
+        // A present null `data` must stay null. `data ?? body` would hide
+        // "no CV" behind the envelope. Responses that omit `data` keep the
+        // envelope so callers can still read `status`.
+        response.data = body.containsKey('data') ? body['data'] : body;
         return handler.next(response);
       } else {
         // status == 'error' / 'fail' returned as HTTP 200 — treat as error
@@ -35,6 +37,12 @@ class ResponseInterceptor extends Interceptor {
   // ── ERROR PATH ───────────────────────────────────────────────────────────────
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
+    if (err.type == DioExceptionType.cancel) {
+      handler
+          .reject(_reject(err, RequestCancelledException('Request cancelled')));
+      return;
+    }
+
     final response = err.response;
     final code = response?.statusCode;
     final body = response?.data;
@@ -50,13 +58,26 @@ class ResponseInterceptor extends Interceptor {
         handler.reject(_reject(err, ForbiddenException(message)));
       case 404:
         handler.reject(_reject(err, NotFoundException(message)));
+      case 409:
+        handler.reject(_reject(err, ConflictException(message)));
+      case 413:
+        handler.reject(_reject(err, PayloadTooLargeException(message)));
+      case 422:
+        handler.reject(_reject(err, ValidationException(message)));
+      case 429:
+        handler.reject(_reject(err, RateLimitException(message)));
       case 502:
         handler.reject(_reject(err, UpstreamException(message)));
+      case 503:
+        handler.reject(_reject(err, ServiceUnavailableException(message)));
+      case 504:
+        handler.reject(_reject(err, GatewayTimeoutException(message)));
       default:
         if (err.type == DioExceptionType.connectionTimeout ||
-            err.type == DioExceptionType.receiveTimeout) {
-          handler
-              .reject(_reject(err, NetworkException('Connection timed out')));
+            err.type == DioExceptionType.receiveTimeout ||
+            err.type == DioExceptionType.sendTimeout) {
+          handler.reject(
+              _reject(err, RequestTimeoutException('Connection timed out')));
         } else if (err.type == DioExceptionType.connectionError) {
           handler
               .reject(_reject(err, NetworkException('No internet connection')));
@@ -71,8 +92,12 @@ class ResponseInterceptor extends Interceptor {
     if (body is Map<String, dynamic>) {
       final raw = body['detail'] ?? body['message'] ?? body['error'];
       if (raw is String) return raw;
-      if (raw is List)
-        return (raw.first?['msg'] ?? raw.first?.toString())?.toString();
+      if (raw is List && raw.isNotEmpty) {
+        final first = raw.first;
+        if (first is Map && first['msg'] is String) {
+          return first['msg'] as String;
+        }
+      }
     }
     return null;
   }

@@ -12,8 +12,24 @@ import '../../../../Presentation/utils/validations.dart';
 import '../../../../app_localizations.dart';
 import '../cubit/login/login_cubit.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   /// Build LinkedIn sign-in button with LinkedIn branding
   Widget _buildLinkedInButton({
@@ -75,9 +91,6 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     AppLocalizations localizations = AppLocalizations.of(context)!;
-    final formKey = GlobalKey<FormState>();
-    final TextEditingController emailController = TextEditingController();
-    final TextEditingController passwordController = TextEditingController();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -96,7 +109,7 @@ class LoginScreen extends StatelessWidget {
           } else if (state is LoginFailure) {
             CustomSnackBars.errorSnackBar(
               context: context,
-              message: state.message,
+              message: AppLocalizations.message(context, state.message),
             );
           }
         },
@@ -106,7 +119,7 @@ class LoginScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Form(
-                key: formKey,
+                key: _formKey,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -130,7 +143,9 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 30),
                     TextFormField(
-                      controller: emailController,
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
                       decoration: InputDecoration(
                         labelText: localizations.translate('email'),
                         border: OutlineInputBorder(
@@ -142,7 +157,7 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     TextFormField(
-                      controller: passwordController,
+                      controller: _passwordController,
                       obscureText: !cubit.isPasswordVisible,
                       decoration: InputDecoration(
                         labelText: localizations.translate('password'),
@@ -165,10 +180,14 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Align(
-                      alignment: Alignment.centerRight,
+                      alignment: AlignmentDirectional.centerStart,
                       child: TextButton(
                         onPressed: () {
-                          // Handle forgot password
+                          Navigator.pushNamed(
+                            context,
+                            RoutesName.forgotPassword,
+                            arguments: _emailController.text.trim(),
+                          );
                         },
                         child: Text(
                           localizations.translate('forgot_password'),
@@ -184,18 +203,12 @@ class LoginScreen extends StatelessWidget {
                             text: localizations.translate('login'),
                             context: context,
                             onPressed: () {
-                              // TEMP: skip login and go straight to home for testing.
-                              Navigator.pushNamedAndRemoveUntil(
-                                context,
-                                RoutesName.home,
-                                (route) => false,
-                              );
-                              // if (formKey.currentState!.validate()) {
-                              //   cubit.loginWithEmail(
-                              //     email: emailController.text,
-                              //     password: passwordController.text,
-                              //   );
-                              // }
+                              if (_formKey.currentState!.validate()) {
+                                cubit.loginWithEmail(
+                                  email: _emailController.text.trim(),
+                                  password: _passwordController.text,
+                                );
+                              }
                             },
                           ),
                     const SizedBox(height: 20),

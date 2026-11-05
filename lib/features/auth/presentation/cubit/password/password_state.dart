@@ -1,34 +1,53 @@
 part of 'password_cubit.dart';
 
-abstract class PasswordState extends Equatable {
-  const PasswordState();
-
-  @override
-  List<Object?> get props => [];
+enum PasswordStatus {
+  initial,
+  submittingEmail,
+  emailAccepted,
+  resending,
+  resendAccepted,
+  resetting,
+  resetSuccess,
+  failure,
 }
 
-class PasswordInitial extends PasswordState {}
+class PasswordState extends Equatable {
+  final PasswordStatus status;
+  final String email;
+  final String otp;
+  final int remainingSeconds;
+  final PasswordResetFailure? failure;
 
-class PasswordLoading extends PasswordState {}
+  const PasswordState({
+    this.status = PasswordStatus.initial,
+    this.email = '',
+    this.otp = '',
+    this.remainingSeconds = 0,
+    this.failure,
+  });
 
-class PasswordError extends PasswordState {
-  final String message;
+  bool get isBusy =>
+      status == PasswordStatus.submittingEmail ||
+      status == PasswordStatus.resending ||
+      status == PasswordStatus.resetting;
 
-  const PasswordError(this.message);
+  PasswordState copyWith({
+    PasswordStatus? status,
+    String? email,
+    String? otp,
+    int? remainingSeconds,
+    PasswordResetFailure? failure,
+    bool clearFailure = false,
+  }) {
+    return PasswordState(
+      status: status ?? this.status,
+      email: email ?? this.email,
+      otp: otp ?? this.otp,
+      remainingSeconds: remainingSeconds ?? this.remainingSeconds,
+      failure: clearFailure ? null : failure ?? this.failure,
+    );
+  }
 
   @override
-  List<Object?> get props => [message];
-}
-
-class ForgotPasswordSuccess extends PasswordState {}
-
-class ResetPasswordSuccess extends PasswordState {}
-
-
-class ViewPasswordState extends PasswordState {
-  final bool enabled;
-  const ViewPasswordState({required this.enabled});
-
-  @override
-  List<Object> get props => [enabled];
+  List<Object?> get props => [status, email, otp, remainingSeconds, failure];
 }

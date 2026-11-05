@@ -1,149 +1,140 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:rashed_app/Presentation/utils/custom_snackbars.dart';
-import 'package:rashed_app/app/routes_name.dart';
-import 'package:rashed_app/features/auth/presentation/cubit/password/password_cubit.dart';
-import '../../../../Presentation/utils/buttons.dart';
-import '../../../../Presentation/utils/colors.dart';
-import '../../../../Presentation/utils/images.dart';
-import '../../../../Presentation/utils/styles.dart';
-import '../../../../Presentation/utils/fonts.dart';
-import '../../../../Presentation/utils/validations.dart';
-import '../../../../app_localizations.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
-class ResetPasswordScreen extends StatelessWidget {
+import '../../../../app/routes_name.dart';
+import '../../../../app_localizations.dart';
+import '../../../../core/error/password_reset_problem.dart';
+import '../../domain/password_reset_validation.dart';
+import '../cubit/password/password_cubit.dart';
+import 'password_flow_ui.dart';
+
+class ResetPasswordScreen extends HookWidget {
   const ResetPasswordScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations localizations = AppLocalizations.of(context)!;
-    final formKey = GlobalKey<FormState>();
-    final TextEditingController newPasswordController = TextEditingController();
-    final TextEditingController confirmPasswordController = TextEditingController();
-    final token = '1234'; // add token from OTP
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: BlocConsumer<PasswordCubit, PasswordState>(
-        listener: (context, state) {
-          if (state is ResetPasswordSuccess) {
-            CustomSnackBars.sucssesSnackBar(
-              context: context,
-              message: localizations.translate('password_reset_seccessfully'),
-            );
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              RoutesName.login,
-              (route) => false,
-            );
-          } else if (state is PasswordError) {
-            CustomSnackBars.errorSnackBar(
-              context: context,
-              message: state.message,
-            );
-          }
-        },
-        builder: (context, state) {
-          PasswordCubit cubit = context.read<PasswordCubit>();
-          return  SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 100),
-                  Center(
-                    child: SvgPicture.asset(
-                      ImageManages.rashedImage,
-                      height: 130,
-                      width: 130,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  Text(
-                    localizations.translate('reset_password'),
-                    style: getBoldStyle(
-                      color: ColorsManager.fontColor,
-                      fontSize: FontSizeManager.s20,
-                    ),
-                    textAlign: TextAlign.start,
-                  ),
-                  const SizedBox(height: 30),
-                  TextFormField(
-                    controller: newPasswordController,
-                    obscureText: !cubit.isPasswordVisible,
-                    decoration: InputDecoration(
-                      labelText: localizations.translate('new_password'),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      suffixIcon: IconButton(
-                          icon: Icon(
-                            cubit.isPasswordVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                          ),
-                          onPressed: () {
-                            cubit.viewPassword();
-                          },
-                        ),
-                    ),
-                    validator: (value) =>
-                        Validations.validatePassword(value!, context),
-                  ),
-                  const SizedBox(height: 20),
-                  TextFormField(
-                    controller: confirmPasswordController,
-                    obscureText: !cubit.isPasswordVisible,
-                    decoration: InputDecoration(
-                      labelText: localizations.translate('confirm_password'),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      suffixIcon: IconButton(
-                          icon: Icon(
-                            cubit.isPasswordVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                          ),
-                          onPressed: () {
-                            cubit.viewPassword();
-                          },
-                        ),
-                    ),
-                    validator: (confirmPassword) =>
-                        Validations.validateConfirmPassword(
-                            newPasswordController.text,
-                            confirmPassword!,
-                            context),
-                  ),
-                  const SizedBox(height: 20),
-                  state is PasswordLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : ButtonsManager.primaryButton(
-                    text: localizations.translate('reset_password'),
-                    context: context,
-                    onPressed: () {
-                      if (formKey.currentState!.validate()) {
-                        // handle Reset password
-                        cubit.resetPassword(
-                          token,
-                           newPasswordController.text);
-                      }
-                    },
-                  ),
-                ],
+    final formKey = useMemoized(GlobalKey<FormState>.new);
+    final password = useTextEditingController();
+    final confirmation = useTextEditingController();
+    final showPassword = useState(false);
+    final showConfirmation = useState(false);
+    final strings = AppLocalizations.of(context)!;
+    return BlocConsumer<PasswordCubit, PasswordState>(
+      listenWhen: (previous, current) =>
+          previous.status != current.status &&
+          current.status == PasswordStatus.resetSuccess,
+      listener: (context, state) => Navigator.pushNamedAndRemoveUntil(
+        context,
+        RoutesName.passwordResetSuccess,
+        (_) => false,
+      ),
+      builder: (context, state) => PasswordFlowPage(
+        title: strings.translate('reset_password'),
+        description: strings.translate('new_password_hint'),
+        children: [
+          if (state.failure != null)
+            PasswordIssueBanner(failure: state.failure!),
+          if (state.failure?.problem == PasswordResetProblem.invalidOtp ||
+              state.failure?.problem == PasswordResetProblem.expiredOtp ||
+              state.failure?.fields.contains('otp') == true)
+            TextButton(
+              key: const Key('editCode'),
+              onPressed: () => Navigator.pop(context),
+              child: Text(strings.translate('edit_code')),
+            ),
+          if (state.failure?.fields.contains('email') == true)
+            TextButton(
+              onPressed: () => Navigator.popUntil(
+                context,
+                ModalRoute.withName(RoutesName.forgotPassword),
               ),
+              child: Text(strings.translate('change_email')),
+            ),
+          Form(
+            key: formKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  key: const Key('newPassword'),
+                  controller: password,
+                  obscureText: !showPassword.value,
+                  enabled: !state.isBusy,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: InputDecoration(
+                    labelText: strings.translate('new_password'),
+                    errorText:
+                        state.failure?.fields.contains('new_password') == true
+                            ? strings.translate('reset_password_short')
+                            : null,
+                    suffixIcon: IconButton(
+                      key: const Key('toggleNewPassword'),
+                      tooltip: strings.translate(showPassword.value
+                          ? 'hide_password'
+                          : 'show_password'),
+                      icon: Icon(showPassword.value
+                          ? Icons.visibility_off
+                          : Icons.visibility),
+                      onPressed: () => showPassword.value = !showPassword.value,
+                    ),
+                  ),
+                  validator: (value) =>
+                      PasswordResetValidation.isValidPassword(value ?? '')
+                          ? null
+                          : strings.translate('reset_password_short'),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  key: const Key('confirmPassword'),
+                  controller: confirmation,
+                  obscureText: !showConfirmation.value,
+                  enabled: !state.isBusy,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: InputDecoration(
+                    labelText: strings.translate('confirm_password'),
+                    errorText:
+                        state.failure?.fields.contains('confirm_password') ==
+                                true
+                            ? strings.translate('reset_password_mismatch')
+                            : null,
+                    suffixIcon: IconButton(
+                      key: const Key('toggleConfirmPassword'),
+                      tooltip: strings.translate(showConfirmation.value
+                          ? 'hide_password'
+                          : 'show_password'),
+                      icon: Icon(showConfirmation.value
+                          ? Icons.visibility_off
+                          : Icons.visibility),
+                      onPressed: () =>
+                          showConfirmation.value = !showConfirmation.value,
+                    ),
+                  ),
+                  validator: (value) => PasswordResetValidation.passwordsMatch(
+                          password.text, value ?? '')
+                      ? null
+                      : strings.translate('reset_password_mismatch'),
+                ),
+              ],
             ),
           ),
-        );
-      
-        },
-        ),
+          const SizedBox(height: 28),
+          ElevatedButton(
+            key: const Key('submitReset'),
+            onPressed: state.isBusy
+                ? null
+                : () {
+                    if (!formKey.currentState!.validate()) return;
+                    FocusScope.of(context).unfocus();
+                    context
+                        .read<PasswordCubit>()
+                        .resetPassword(password.text, confirmation.text);
+                  },
+            child: state.status == PasswordStatus.resetting
+                ? const CircularProgressIndicator()
+                : Text(strings.translate('reset_password')),
+          ),
+        ],
+      ),
     );
   }
 }

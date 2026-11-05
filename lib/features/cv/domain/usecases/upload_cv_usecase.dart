@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
+
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../entities/cv.dart';
@@ -10,18 +13,29 @@ class UploadCvUseCase implements UseCase<Cv, UploadCvParams> {
 
   UploadCvUseCase(this.repository);
 
+  void cancel() => repository.cancelUpload();
+
   @override
-  Future<Either<Failure, Cv>> call(UploadCvParams params) async {
-    return await repository.uploadCv(params.filePath, params.fileName);
+  Future<Either<Failure, Cv>> call(UploadCvParams params) {
+    return repository.uploadCv(
+      bytes: params.bytes,
+      fileName: params.fileName,
+      onProgress: params.onProgress,
+    );
   }
 }
 
 class UploadCvParams extends Equatable {
-  final String filePath;
+  final Uint8List bytes;
   final String fileName;
+  final void Function(int sent, int total) onProgress;
 
-  const UploadCvParams({required this.filePath, required this.fileName});
+  const UploadCvParams({
+    required this.bytes,
+    required this.fileName,
+    required this.onProgress,
+  });
 
   @override
-  List<Object> get props => [filePath, fileName];
+  List<Object> get props => [fileName, bytes.length];
 }

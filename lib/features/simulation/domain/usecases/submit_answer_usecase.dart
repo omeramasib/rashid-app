@@ -1,17 +1,20 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
+
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../entities/answer_evaluation.dart';
 import '../repositories/interview_repository.dart';
 
-class SubmitAnswerUseCase implements UseCase<void, SubmitAnswerParams> {
+class SubmitAnswerUseCase
+    implements UseCase<AnswerEvaluation, SubmitAnswerParams> {
   final InterviewRepository repository;
 
   SubmitAnswerUseCase(this.repository);
 
   @override
-  Future<Either<Failure, void>> call(SubmitAnswerParams params) async {
-    return await repository.submitAnswer(
+  Future<Either<Failure, AnswerEvaluation>> call(SubmitAnswerParams params) {
+    return repository.submitAnswer(
       questionId: params.questionId,
       skipped: params.skipped,
       answerText: params.answerText,
