@@ -313,8 +313,32 @@ class InterviewCubit extends Cubit<InterviewState> {
     if (simulationId == null || simulationId.isEmpty) return;
     _busyLock = true;
     try {
+      final seedSummary = state.finishResult == null;
       emit(state.copyWith(reportLoading: true, clearReportFailure: true));
-      await _loadReport(simulationId);
+      await _loadReport(simulationId, seedSummary: seedSummary);
+    } finally {
+      _busyLock = false;
+    }
+  }
+
+  /// Opens an already completed interview on the existing result screen.
+  ///
+  /// The finish endpoint is not called. A successful report fills [finishResult]
+  /// only when the cubit does not already have one.
+  Future<void> openCompletedReport(String simulationId) async {
+    if (simulationId.isEmpty || _locked) return;
+    _busyLock = true;
+    try {
+      emit(state.copyWith(
+        phase: InterviewPhase.finished,
+        simulationId: simulationId,
+        reportLoading: true,
+        clearFinish: true,
+        clearReport: true,
+        clearReportFailure: true,
+        clearError: true,
+      ));
+      await _loadReport(simulationId, seedSummary: true);
     } finally {
       _busyLock = false;
     }
@@ -384,7 +408,10 @@ class InterviewCubit extends Cubit<InterviewState> {
     );
   }
 
-  Future<void> _loadReport(String simulationId) async {
+  Future<void> _loadReport(
+    String simulationId, {
+    bool seedSummary = false,
+  }) async {
     final result = await getInterviewReportUseCase(
       GetInterviewReportParams(simulationId: simulationId),
     );
@@ -394,11 +421,17 @@ class InterviewCubit extends Cubit<InterviewState> {
         reportLoading: false,
         reportFailure: failure,
       )),
-      (report) => emit(state.copyWith(
-        reportLoading: false,
-        report: report,
-        clearReportFailure: true,
-      )),
+      (report) {
+        final seeded = seedSummary && state.finishResult == null
+            ? _finishResultFromReport(report)
+            : null;
+        emit(state.copyWith(
+          reportLoading: false,
+          report: report,
+          clearReportFailure: true,
+          finishResult: seeded,
+        ));
+      },
     );
   }
 
@@ -461,6 +494,32 @@ class InterviewCubit extends Cubit<InterviewState> {
       pending.complete();
     }
     return super.close();
+  }
+
+  InterviewFinishResult _finishResultFromReport(InterviewReport report) {
+    final answered = report.answeredQuestions;
+    final skipped = report.skippedQuestions;
+    final unanswered = report.unansweredQuestions;
+    final int? totalQuestions;
+    if (report.questions.isNotEmpty) {
+      totalQuestions = report.questions.length;
+    } else if (answered != null && skipped != null && unanswered != null) {
+      totalQuestions = answered + skipped + unanswered;
+    } else {
+      totalQuestions = null;
+    }
+    return InterviewFinishResult(
+      simulationId: report.simulationId,
+      score: report.score,
+      performanceStatus: report.performanceStatus,
+      totalQuestions: totalQuestions,
+      answeredQuestions: answered,
+      skippedQuestions: skipped,
+      unansweredQuestions: unanswered,
+      status: report.status,
+      reportStatus: report.reportStatus,
+      reportSummary: report.reportSummary,
+    );
   }
 
   bool _settingsAreValid({

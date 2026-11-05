@@ -60,6 +60,11 @@ import '../../features/simulation/domain/usecases/start_interview_by_job_usecase
 import '../../features/simulation/domain/usecases/submit_answer_usecase.dart';
 import '../../features/simulation/presentation/cubit/interview_cubit.dart';
 import '../../features/simulation/presentation/cubit/interview_entry_cubit.dart';
+import '../../features/performance/data/datasources/performance_remote_datasource.dart';
+import '../../features/performance/data/repositories/performance_repository_impl.dart';
+import '../../features/performance/domain/repositories/performance_repository.dart';
+import '../../features/performance/domain/usecases/get_performance_summary_usecase.dart';
+import '../../features/performance/presentation/cubit/performance_cubit.dart';
 import '../../features/home/data/datasources/home_remote_datasource.dart';
 import '../../features/home/data/repositories/home_repository_impl.dart';
 import '../../features/home/domain/repositories/home_repository.dart';
@@ -231,6 +236,18 @@ Future<void> init() async {
   // Data sources
   sl.registerLazySingleton<InterviewRemoteDataSource>(
     () => InterviewRemoteDataSourceImpl(client: sl()),
+  );
+
+  //! Features - Performance
+  sl.registerFactory(
+    () => PerformanceCubit(getPerformanceSummaryUseCase: sl()),
+  );
+  sl.registerLazySingleton(() => GetPerformanceSummaryUseCase(sl()));
+  sl.registerLazySingleton<PerformanceRepository>(
+    () => PerformanceRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<PerformanceRemoteDataSource>(
+    () => PerformanceRemoteDataSourceImpl(client: sl()),
   );
 
   //! Features - Home

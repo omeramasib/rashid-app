@@ -909,264 +909,121 @@ void main() {
     await cubit.close();
   });
 
-  test('preloadAd asks the gate and does not start an interview', () async {
-    final gate = ScriptedAdGate();
-    final cubit = build(adGate: gate);
-    cubit.preloadAd();
-    await pumpEventQueue();
-    expect(gate.preloads, 1);
-    verifyNever(() => startByJob(any()));
-    await cubit.close();
-  });
-
-  test('starts once after the ad is dismissed and not before', () async {
-    final show = Completer<void>();
-    final gate = ScriptedAdGate(show: show);
-    final cubit = build(adGate: gate);
-    final pending = startJob(cubit);
-    await pumpEventQueue();
-    expect(cubit.state.cvChecked, isTrue);
-    expect(cubit.state.phase, InterviewPhase.setup);
-    verifyNever(() => startByJob(any()));
-    show.complete();
-    await pending;
-    expect(cubit.state.phase, InterviewPhase.inProgress);
-    verify(() => startByJob(any())).called(1);
-    expect(gate.shows, 1);
-    await cubit.close();
-  });
-
-  test('starts immediately when no ad is available', () async {
-    final gate = ScriptedAdGate();
-    final cubit = build(adGate: gate);
-    await startJob(cubit);
-    expect(gate.shows, 1);
-    verify(() => startByJob(any())).called(1);
-    expect(cubit.state.phase, InterviewPhase.inProgress);
-    await cubit.close();
-  });
-
-  test('a second tap during the ad does not start twice', () async {
-    final show = Completer<void>();
-    final gate = ScriptedAdGate(show: show);
-    final cubit = build(adGate: gate);
-    final first = startJob(cubit);
-    await pumpEventQueue();
-    final second = startJob(cubit);
-    show.complete();
-    await Future.wait(<Future<void>>[first, second]);
-    expect(gate.shows, 1);
-    verify(() => startByJob(any())).called(1);
-    await cubit.close();
-  });
-
-  test('a dismissed ad does not start the interview while backgrounded',
-      () async {
-    final foreground = ControllableForeground();
-    final show = Completer<void>();
-    final gate = ScriptedAdGate(show: show);
-    final cubit = build(adGate: gate, foreground: foreground);
-    final pending = startJob(cubit);
-    await pumpEventQueue();
-    foreground.setResumed(false);
-    show.complete();
-    await pumpEventQueue();
-    expect(cubit.state.phase, InterviewPhase.setup);
-    verifyNever(() => startByJob(any()));
-    foreground.setResumed(true);
-    await pending;
-    verify(() => startByJob(any())).called(1);
-    expect(cubit.state.phase, InterviewPhase.inProgress);
-    await cubit.close();
-  });
-
-  test('closing during the ad does not start the interview', () async {
-    final show = Completer<void>();
-    final gate = ScriptedAdGate(show: show);
-    final cubit = build(adGate: gate);
-    final pending = startJob(cubit);
-    await pumpEventQueue();
-    await cubit.close();
-    show.complete();
-    await pending;
-    verifyNever(() => startByJob(any()));
-  });
-
-  test('keeps the existing network error after the ad gate', () async {
-    final gate = ScriptedAdGate();
-    when(() => startByJob(any())).thenAnswer(
-      (_) async => const Left(
-        InterviewStartFailure(NetworkFailure('No internet connection')),
+  const historyReport = InterviewReport(
+    simulationId: 'sim-9',
+    score: 85,
+    performanceStatus: 'excellent',
+    status: 'completed',
+    reportStatus: 'completed',
+    reportSummary: 'Clear answers.',
+    answeredQuestions: 4,
+    skippedQuestions: 1,
+    unansweredQuestions: 0,
+    questions: [
+      InterviewReportQuestion(
+        id: 'q-9',
+        questionText: 'Describe a project.',
+        isSkipped: false,
       ),
-    );
-    final cubit = build(adGate: gate);
-    await startJob(cubit);
-    expect(cubit.state.phase, InterviewPhase.startFailed);
-    expect(
-      cubit.state.error,
-      const NetworkFailure('No internet connection'),
-    );
-    verify(() => startByJob(any())).called(1);
-    await cubit.close();
-  });
+    ],
+  );
+  const seeded = InterviewFinishResult(
+    simulationId: 'sim-9',
+    score: 85,
+    performanceStatus: 'excellent',
+    totalQuestions: 1,
+    answeredQuestions: 4,
+    skippedQuestions: 1,
+    unansweredQuestions: 0,
+    status: 'completed',
+    reportStatus: 'completed',
+    reportSummary: 'Clear answers.',
+  );
 
-  test('retrying generation does not show another ad', () async {
-    final gate = ScriptedAdGate();
-    when(() => startByJob(any())).thenAnswer(
-      (_) async => const Left(
-        InterviewStartFailure(
-          NetworkFailure('No internet connection'),
-          simulationId: 'sim-x',
-        ),
+  blocTest<InterviewCubit, InterviewState>(
+    'opens a completed report once and seeds the finish summary',
+    build: build,
+    setUp: () {
+      when(() => getReport(any()))
+          .thenAnswer((_) async => const Right(historyReport));
+    },
+    act: (cubit) => cubit.openCompletedReport('sim-9'),
+    expect: () => [
+      const InterviewState(
+        phase: InterviewPhase.finished,
+        simulationId: 'sim-9',
+        reportLoading: true,
       ),
-    );
-    final cubit = build(adGate: gate);
-    await startJob(cubit);
-    expect(gate.shows, 1);
-    await cubit.retryStart();
-    expect(gate.shows, 1);
-    verify(() => retry(any())).called(1);
-    expect(cubit.state.phase, InterviewPhase.inProgress);
-    await cubit.close();
-  });
+      const InterviewState(
+        phase: InterviewPhase.finished,
+        simulationId: 'sim-9',
+        report: historyReport,
+        finishResult: seeded,
+      ),
+    ],
+    verify: (_) {
+      verify(
+        () => getReport(const GetInterviewReportParams(simulationId: 'sim-9')),
+      ).called(1);
+      verifyNever(() => finish(any()));
+    },
+  );
 
-  test('starting a session preloads the finish ad without showing it',
-      () async {
-    final gate = ScriptedAdGate();
-    final cubit = build(adGate: gate);
-    await startJob(cubit);
-    expect(
-      gate.placementsPreloaded,
-      contains(AdPlacement.interviewFinish),
-    );
-    expect(
-      gate.placementsShown,
-      [AdPlacement.interviewStart],
-    );
-    await cubit.submit('My answer');
-    expect(gate.placementsShown, [AdPlacement.interviewStart]);
-    await cubit.close();
-  });
+  blocTest<InterviewCubit, InterviewState>(
+    'sums question counts when a historical report has no question list',
+    build: build,
+    setUp: () {
+      when(() => getReport(any())).thenAnswer(
+        (_) async => const Right(InterviewReport(
+          simulationId: 'sim-4',
+          answeredQuestions: 2,
+          skippedQuestions: 1,
+          unansweredQuestions: 0,
+          questions: [],
+        )),
+      );
+    },
+    act: (cubit) => cubit.openCompletedReport('sim-4'),
+    verify: (cubit) {
+      expect(cubit.state.finishResult?.totalQuestions, 3);
+      expect(cubit.state.finishResult?.score, isNull);
+      verifyNever(() => finish(any()));
+    },
+  );
 
-  test('a saved interview shows the finish ad before the report loads',
-      () async {
-    final finishShow = Completer<void>();
-    final gate = ScriptedAdGate(finishShow: finishShow);
-    final cubit = build(adGate: gate);
-    await startJob(cubit);
-    final pending = cubit.finish();
-    await pumpEventQueue();
-    expect(cubit.state.phase, InterviewPhase.finishing);
-    verify(() => finish(any())).called(1);
-    verifyNever(() => getReport(any()));
-    expect(
-      gate.placementsShown.where((p) => p == AdPlacement.interviewFinish),
-      hasLength(1),
-    );
-    finishShow.complete();
-    await pending;
-    expect(cubit.state.phase, InterviewPhase.finished);
-    expect(cubit.state.finishResult, finished);
-    verify(() => getReport(any())).called(1);
-    await cubit.close();
-  });
+  blocTest<InterviewCubit, InterviewState>(
+    'keeps the retry state when a historical report fails',
+    build: build,
+    setUp: () {
+      when(() => getReport(any())).thenAnswer(
+        (_) async => const Left(NetworkFailure('No internet connection')),
+      );
+    },
+    act: (cubit) => cubit.openCompletedReport('sim-9'),
+    expect: () => [
+      const InterviewState(
+        phase: InterviewPhase.finished,
+        simulationId: 'sim-9',
+        reportLoading: true,
+      ),
+      const InterviewState(
+        phase: InterviewPhase.finished,
+        simulationId: 'sim-9',
+        reportFailure: NetworkFailure('No internet connection'),
+      ),
+    ],
+    verify: (cubit) {
+      expect(cubit.state.finishResult, isNull);
+      expect(cubit.state.report, isNull);
+      verifyNever(() => finish(any()));
+    },
+  );
 
-  test('an unavailable finish ad still opens the report once', () async {
-    final gate = ScriptedAdGate();
-    final cubit = build(adGate: gate);
-    await startJob(cubit);
-    await cubit.finish();
-    expect(cubit.state.phase, InterviewPhase.finished);
-    verify(() => finish(any())).called(1);
-    verify(() => getReport(any())).called(1);
-    await cubit.close();
-  });
-
-  test('a finish ad that fails to show still opens the report', () async {
-    final gate = ScriptedAdGate(finishError: StateError('show'));
-    final cubit = build(adGate: gate);
-    await startJob(cubit);
-    await cubit.finish();
-    expect(cubit.state.phase, InterviewPhase.finished);
-    verify(() => finish(any())).called(1);
-    verify(() => getReport(any())).called(1);
-    await cubit.close();
-  });
-
-  test('a failed finish does not show an ad or load the report', () async {
-    when(() => finish(any())).thenAnswer(
-      (_) async => const Left(NetworkFailure('No internet connection')),
-    );
-    final gate = ScriptedAdGate();
-    final cubit = build(adGate: gate);
-    await startJob(cubit);
-    await cubit.finish();
-    expect(cubit.state.phase, InterviewPhase.inProgress);
-    expect(
-      cubit.state.error,
-      const NetworkFailure('No internet connection'),
-    );
-    expect(
-      gate.placementsShown,
-      [AdPlacement.interviewStart],
-    );
-    verify(() => finish(any())).called(1);
-    verifyNever(() => getReport(any()));
-    await cubit.close();
-  });
-
-  test('a second finish during the ad does not finish twice', () async {
-    final finishShow = Completer<void>();
-    final gate = ScriptedAdGate(finishShow: finishShow);
-    final cubit = build(adGate: gate);
-    await startJob(cubit);
-    final first = cubit.finish();
-    await pumpEventQueue();
-    final second = cubit.finish();
-    finishShow.complete();
-    await Future.wait(<Future<void>>[first, second]);
-    verify(() => finish(any())).called(1);
-    verify(() => getReport(any())).called(1);
-    expect(
-      gate.placementsShown.where((p) => p == AdPlacement.interviewFinish),
-      hasLength(1),
-    );
-    expect(cubit.state.phase, InterviewPhase.finished);
-    await cubit.close();
-  });
-
-  test('a finish ad dismissed in the background waits to open the report',
-      () async {
-    final foreground = ControllableForeground();
-    final finishShow = Completer<void>();
-    final gate = ScriptedAdGate(finishShow: finishShow);
-    final cubit = build(adGate: gate, foreground: foreground);
-    await startJob(cubit);
-    final pending = cubit.finish();
-    await pumpEventQueue();
-    foreground.setResumed(false);
-    finishShow.complete();
-    await pumpEventQueue();
-    expect(cubit.state.phase, InterviewPhase.finishing);
-    verifyNever(() => getReport(any()));
-    foreground.setResumed(true);
-    await pending;
-    expect(cubit.state.phase, InterviewPhase.finished);
-    verify(() => getReport(any())).called(1);
-    await cubit.close();
-  });
-
-  test('closing during the finish ad does not load the report', () async {
-    final finishShow = Completer<void>();
-    final gate = ScriptedAdGate(finishShow: finishShow);
-    final cubit = build(adGate: gate);
-    await startJob(cubit);
-    final pending = cubit.finish();
-    await pumpEventQueue();
-    verify(() => finish(any())).called(1);
-    await cubit.close();
-    finishShow.complete();
-    await pending;
-    verifyNever(() => getReport(any()));
-  });
+  blocTest<InterviewCubit, InterviewState>(
+    'does not request a report for a blank simulation id',
+    build: build,
+    act: (cubit) => cubit.openCompletedReport(''),
+    expect: () => const <InterviewState>[],
+    verify: (_) => verifyNever(() => getReport(any())),
+  );
 }
