@@ -95,4 +95,15 @@ void main() {
       const Left(ConflictFailure('Interview cannot be finished')),
     );
   });
+
+  test('a malformed history count stays a failure instead of zero', () async {
+    when(() => source.getSimulationHistoryCount()).thenThrow(
+      ServerException('Malformed simulation history count'),
+    );
+    final result = await repository.getSimulationHistoryCount();
+    expect(
+      result.fold((failure) => failure, (_) => null),
+      isA<ServerFailure>(),
+    );
+  });
 }

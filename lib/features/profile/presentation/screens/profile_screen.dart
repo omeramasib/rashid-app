@@ -1,17 +1,30 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
+import 'package:rashed_app/core/ads/ad_consent_service.dart';
+import 'package:rashed_app/core/di/injection_container.dart' as di;
 import 'package:rashed_app/core/localization/app_text_direction.dart';
 import 'package:rashed_app/core/localization/localization_bloc.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 import 'package:rashed_app/features/profile/presentation/widgets/language_picker_sheet.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.adConsent});
+
+  final AdConsentService? adConsent;
+
+  AdConsentService? get _consent {
+    if (adConsent != null) return adConsent;
+    if (!di.sl.isRegistered<AdConsentService>()) return null;
+    return di.sl<AdConsentService>();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final consent = _consent;
     return Directionality(
       textDirection: AppTextDirection.of(context),
       child: Scaffold(
@@ -60,6 +73,28 @@ class ProfileScreen extends StatelessWidget {
                         iconColor: AppColors.primarySet2,
                         onTap: () {},
                       ),
+                      if (consent != null)
+                        FutureBuilder<bool>(
+                          future: consent.isPrivacyOptionsRequired(),
+                          builder: (context, snapshot) {
+                            if (snapshot.data != true) {
+                              return const SizedBox.shrink();
+                            }
+                            return _buildMenuItem(
+                              key: const Key('ad_privacy_options'),
+                              context: context,
+                              title: AppLocalizations.tr(
+                                context,
+                                'ad_privacy_options',
+                              ),
+                              icon: Icons.privacy_tip_outlined,
+                              iconColor: AppColors.primarySet2,
+                              onTap: () {
+                                unawaited(consent.showPrivacyOptionsForm());
+                              },
+                            );
+                          },
+                        ),
                       _buildMenuItem(
                         context: context,
                         title: AppLocalizations.tr(context, 'share_app'),
@@ -156,7 +191,8 @@ class ProfileScreen extends StatelessWidget {
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () {
-                        Navigator.pushNamed(context, RoutesName.completeProfile);
+                        Navigator.pushNamed(
+                            context, RoutesName.completeProfile);
                       },
                       child: const Icon(
                         Icons.edit,
@@ -198,6 +234,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildMenuItem({
+    Key? key,
     required BuildContext context,
     required String title,
     String? value,
@@ -206,6 +243,7 @@ class ProfileScreen extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return Padding(
+      key: key,
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: Colors.transparent,

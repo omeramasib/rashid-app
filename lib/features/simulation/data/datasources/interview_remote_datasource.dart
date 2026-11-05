@@ -7,6 +7,7 @@ import '../models/answer_evaluation_model.dart';
 import '../models/interview_finish_result_model.dart';
 import '../models/interview_report_model.dart';
 import '../models/interview_simulation_history_model.dart';
+import '../models/simulation_history_count_model.dart';
 import '../models/interview_start_response_model.dart';
 
 abstract class InterviewRemoteDataSource {
@@ -43,6 +44,8 @@ abstract class InterviewRemoteDataSource {
   Future<InterviewReportModel> getReport(String simulationId);
 
   Future<List<InterviewSimulationHistoryModel>> getSimulationsHistory();
+
+  Future<SimulationHistoryCountModel> getSimulationHistoryCount();
 }
 
 class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
@@ -186,6 +189,25 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
     } on DioException catch (error) {
       throw _exception(error);
     } catch (error) {
+      throw ServerException(error.toString());
+    }
+  }
+
+  @override
+  Future<SimulationHistoryCountModel> getSimulationHistoryCount() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.interviewHistoryCount);
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw ServerException('Malformed simulation history count');
+      }
+      return SimulationHistoryCountModel.fromJson(data);
+    } on DioException catch (error) {
+      throw _exception(error);
+    } on FormatException {
+      throw ServerException('Malformed simulation history count');
+    } catch (error) {
+      if (error is AppException) rethrow;
       throw ServerException(error.toString());
     }
   }

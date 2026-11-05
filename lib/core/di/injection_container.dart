@@ -1,5 +1,14 @@
+import 'dart:async';
+
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../ads/ad_consent_service.dart';
+import '../ads/ad_frequency_cap.dart';
+import '../ads/admob_config.dart';
+import '../ads/ads_bootstrap.dart';
+import '../ads/app_foreground.dart';
+import '../ads/interview_ad_gate.dart';
+import '../ads/interstitial_ad_service.dart';
 import '../localization/localization_bloc.dart';
 import '../network/dio_client.dart';
 import '../auth/clerk_auth_service.dart';
@@ -44,6 +53,7 @@ import '../../features/simulation/domain/repositories/interview_repository.dart'
 import '../../features/simulation/domain/usecases/finish_interview_usecase.dart';
 import '../../features/simulation/domain/usecases/retry_interview_generation_usecase.dart';
 import '../../features/simulation/domain/usecases/get_interview_report_usecase.dart';
+import '../../features/simulation/domain/usecases/get_simulation_history_count_usecase.dart';
 import '../../features/simulation/domain/usecases/get_simulations_history_usecase.dart';
 import '../../features/simulation/domain/usecases/start_interview_by_job_description_usecase.dart';
 import '../../features/simulation/domain/usecases/start_interview_by_job_usecase.dart';
@@ -60,6 +70,7 @@ import '../../features/home/data/repositories/home_repository_impl.dart';
 import '../../features/home/domain/repositories/home_repository.dart';
 import '../../features/home/domain/usecases/share_interview_result_usecase.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
+import '../../features/home/presentation/cubit/simulation_history_count_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -202,6 +213,8 @@ Future<void> init() async {
       getInterviewReportUseCase: sl(),
       getSimulationsHistoryUseCase: sl(),
       getMyCvProfileUseCase: sl(),
+      adGate: sl(),
+      foreground: sl(),
     ),
   );
 
@@ -213,6 +226,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => FinishInterviewUseCase(sl()));
   sl.registerLazySingleton(() => GetInterviewReportUseCase(sl()));
   sl.registerLazySingleton(() => GetSimulationsHistoryUseCase(sl()));
+  sl.registerLazySingleton(() => GetSimulationHistoryCountUseCase(sl()));
 
   // Repository
   sl.registerLazySingleton<InterviewRepository>(
@@ -241,6 +255,12 @@ Future<void> init() async {
   sl.registerFactory(
     () => HomeCubit(shareInterviewResultUseCase: sl()),
   );
+  sl.registerFactory(
+    () => SimulationHistoryCountCubit(
+      getSimulationHistoryCount: sl(),
+      secureStorage: sl(),
+    ),
+  );
 
   // Usecases
   sl.registerLazySingleton(() => ShareInterviewResultUseCase(sl()));
@@ -256,6 +276,59 @@ Future<void> init() async {
   );
 
   //! Core
+  final adMobConfig = AdMobConfig.fromEnvironment();
+  sl.registerSingleton<AdMobConfig>(adMobConfig);
+  sl.registerLazySingleton<AppForegroundSignal>(WidgetsAppForeground.new);
+  sl.registerLazySingleton<AdConsentService>(
+    () => adMobConfig.requestsAds
+        ? UmpAdConsentService()
+        : const DeniedAdConsentService(),
+  );
+  sl.registerLazySingleton(
+    () => AdFrequencyCap(
+      preferences: sl(),
+      cooldown: adMobConfig.cooldown,
+    ),
+  );
+  void recordImpression() {
+    unawaited(sl<AdFrequencyCap>().recordImpression());
+  }
+
+  sl.registerLazySingleton<InterstitialAdService>(
+    () => createInterstitialAdService(
+      config: adMobConfig,
+      foreground: sl(),
+      placement: AdPlacement.interviewStart,
+      onImpression: recordImpression,
+    ),
+  );
+  sl.registerLazySingleton<InterstitialAdService>(
+    () => createInterstitialAdService(
+      config: adMobConfig,
+      foreground: sl(),
+      placement: AdPlacement.interviewFinish,
+      onImpression: recordImpression,
+    ),
+    instanceName: AdPlacement.interviewFinish.name,
+  );
+  sl.registerLazySingleton<AdsBootstrap>(
+    () => AdsBootstrap(
+      config: adMobConfig,
+      consent: sl(),
+      initializeSdk:
+          adMobConfig.requestsAds ? GoogleMobileAdsInitializer().call : null,
+    ),
+  );
+  sl.registerLazySingleton<InterviewAdGate>(
+    () => MobileAdsInterviewAdGate(
+      bootstrap: sl(),
+      consent: sl(),
+      frequencyCap: sl(),
+      ads: sl(),
+      finishAds: sl(instanceName: AdPlacement.interviewFinish.name),
+    ),
+  );
+
   // Clerk Auth Service
   sl.registerLazySingleton<ClerkAuthService>(
     () => ClerkConfig.isConfigured

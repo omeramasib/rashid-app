@@ -37,6 +37,7 @@ class InterviewSetupScreen extends HookWidget {
 
     useEffect(() {
       cubit.loadCv();
+      cubit.preloadAd();
       return null;
     }, [cubit]);
 
@@ -47,6 +48,9 @@ class InterviewSetupScreen extends HookWidget {
             previous.phase == InterviewPhase.starting &&
             current.phase == InterviewPhase.inProgress,
         listener: (context, state) {
+          if (!context.mounted) return;
+          final route = ModalRoute.of(context);
+          if (route != null && !route.isCurrent) return;
           Navigator.pushNamed(
             context,
             RoutesName.simulationQuestion,

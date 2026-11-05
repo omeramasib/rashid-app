@@ -37,6 +37,7 @@ class InterviewQuestionScreen extends HookWidget {
             (previous.phase != InterviewPhase.finished &&
                 current.phase == InterviewPhase.finished),
         listener: (context, next) {
+          if (!context.mounted) return;
           if (ModalRoute.of(context)?.isCurrent != true) return;
           final cubit = context.read<InterviewCubit>();
           if (next.phase == InterviewPhase.finished) {

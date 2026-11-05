@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:rashed_app/core/ads/app_foreground.dart';
+import 'package:rashed_app/core/ads/interview_ad_gate.dart';
 import 'package:rashed_app/core/error/failures.dart';
 import 'package:rashed_app/core/usecases/usecase.dart';
 import 'package:rashed_app/features/cv/domain/entities/cv_profile.dart';
@@ -40,6 +43,63 @@ class MockReport extends Mock implements GetInterviewReportUseCase {}
 class MockHistory extends Mock implements GetSimulationsHistoryUseCase {}
 
 class MockProfile extends Mock implements GetMyCvProfileUseCase {}
+
+class ScriptedAdGate implements InterviewAdGate {
+  ScriptedAdGate({this.show, this.finishShow, this.finishError});
+
+  final Completer<void>? show;
+  final Completer<void>? finishShow;
+  final Object? finishError;
+  int preloads = 0;
+  int shows = 0;
+  final List<AdPlacement> placementsShown = <AdPlacement>[];
+  final List<AdPlacement> placementsPreloaded = <AdPlacement>[];
+
+  @override
+  Future<void> preload([
+    AdPlacement placement = AdPlacement.interviewStart,
+  ]) async {
+    preloads += 1;
+    placementsPreloaded.add(placement);
+  }
+
+  @override
+  Future<void> showIfEligible([
+    AdPlacement placement = AdPlacement.interviewStart,
+  ]) {
+    shows += 1;
+    placementsShown.add(placement);
+    if (placement == AdPlacement.interviewFinish && finishError != null) {
+      return Future<void>.error(finishError!);
+    }
+    final pending =
+        placement == AdPlacement.interviewFinish ? finishShow : show;
+    return pending?.future ?? Future<void>.value();
+  }
+}
+
+class ControllableForeground implements AppForegroundSignal {
+  ControllableForeground({this.resumed = true});
+
+  bool resumed;
+  final List<VoidCallback> _listeners = <VoidCallback>[];
+
+  @override
+  bool get isResumed => resumed;
+
+  @override
+  void addListener(VoidCallback listener) => _listeners.add(listener);
+
+  @override
+  void removeListener(VoidCallback listener) => _listeners.remove(listener);
+
+  void setResumed(bool value) {
+    resumed = value;
+    for (final listener in List<VoidCallback>.of(_listeners)) {
+      listener();
+    }
+  }
+}
 
 void main() {
   const question = InterviewQuestion(
@@ -142,7 +202,10 @@ void main() {
     when(() => getReport(any())).thenAnswer((_) async => const Right(report));
   });
 
-  InterviewCubit build() {
+  InterviewCubit build({
+    InterviewAdGate? adGate,
+    AppForegroundSignal? foreground,
+  }) {
     return InterviewCubit(
       startInterviewByJobUseCase: startByJob,
       startInterviewByJobDescriptionUseCase: startByDescription,
@@ -152,6 +215,8 @@ void main() {
       getInterviewReportUseCase: getReport,
       getSimulationsHistoryUseCase: MockHistory(),
       getMyCvProfileUseCase: profile,
+      adGate: adGate,
+      foreground: foreground,
     );
   }
 

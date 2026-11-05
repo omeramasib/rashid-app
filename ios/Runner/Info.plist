@@ -16,6 +16,10 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>rashed_app</string>
+	<!-- Google's public sample App ID. Lets the Mobile Ads SDK load on iOS.
+	     Advertising stays disabled in Dart until a real iOS App ID exists. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

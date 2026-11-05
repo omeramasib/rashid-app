@@ -7,6 +7,7 @@ import '../../domain/entities/interview_finish_result.dart';
 import '../../domain/entities/interview_report.dart';
 import '../../domain/entities/interview_simulation_history.dart';
 import '../../domain/entities/interview_start_response.dart';
+import '../../domain/entities/simulation_history_count.dart';
 import '../../domain/failures/interview_start_failure.dart';
 import '../../domain/repositories/interview_repository.dart';
 import '../datasources/interview_remote_datasource.dart';
@@ -122,6 +123,19 @@ class InterviewRepositoryImpl implements InterviewRepository {
   ) async {
     try {
       final response = await remoteDataSource.getReport(simulationId);
+      return Right(response);
+    } on AppException catch (error) {
+      return Left(_mapExceptionToFailure(error));
+    } catch (error) {
+      return Left(ServerFailure(error.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, SimulationHistoryCount>>
+      getSimulationHistoryCount() async {
+    try {
+      final response = await remoteDataSource.getSimulationHistoryCount();
       return Right(response);
     } on AppException catch (error) {
       return Left(_mapExceptionToFailure(error));
