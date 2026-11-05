@@ -843,4 +843,122 @@ void main() {
     verifyNever(() => profile(any()));
     await cubit.close();
   });
+
+  const historyReport = InterviewReport(
+    simulationId: 'sim-9',
+    score: 85,
+    performanceStatus: 'excellent',
+    status: 'completed',
+    reportStatus: 'completed',
+    reportSummary: 'Clear answers.',
+    answeredQuestions: 4,
+    skippedQuestions: 1,
+    unansweredQuestions: 0,
+    questions: [
+      InterviewReportQuestion(
+        id: 'q-9',
+        questionText: 'Describe a project.',
+        isSkipped: false,
+      ),
+    ],
+  );
+  const seeded = InterviewFinishResult(
+    simulationId: 'sim-9',
+    score: 85,
+    performanceStatus: 'excellent',
+    totalQuestions: 1,
+    answeredQuestions: 4,
+    skippedQuestions: 1,
+    unansweredQuestions: 0,
+    status: 'completed',
+    reportStatus: 'completed',
+    reportSummary: 'Clear answers.',
+  );
+
+  blocTest<InterviewCubit, InterviewState>(
+    'opens a completed report once and seeds the finish summary',
+    build: build,
+    setUp: () {
+      when(() => getReport(any()))
+          .thenAnswer((_) async => const Right(historyReport));
+    },
+    act: (cubit) => cubit.openCompletedReport('sim-9'),
+    expect: () => [
+      const InterviewState(
+        phase: InterviewPhase.finished,
+        simulationId: 'sim-9',
+        reportLoading: true,
+      ),
+      const InterviewState(
+        phase: InterviewPhase.finished,
+        simulationId: 'sim-9',
+        report: historyReport,
+        finishResult: seeded,
+      ),
+    ],
+    verify: (_) {
+      verify(
+        () => getReport(const GetInterviewReportParams(simulationId: 'sim-9')),
+      ).called(1);
+      verifyNever(() => finish(any()));
+    },
+  );
+
+  blocTest<InterviewCubit, InterviewState>(
+    'sums question counts when a historical report has no question list',
+    build: build,
+    setUp: () {
+      when(() => getReport(any())).thenAnswer(
+        (_) async => const Right(InterviewReport(
+          simulationId: 'sim-4',
+          answeredQuestions: 2,
+          skippedQuestions: 1,
+          unansweredQuestions: 0,
+          questions: [],
+        )),
+      );
+    },
+    act: (cubit) => cubit.openCompletedReport('sim-4'),
+    verify: (cubit) {
+      expect(cubit.state.finishResult?.totalQuestions, 3);
+      expect(cubit.state.finishResult?.score, isNull);
+      verifyNever(() => finish(any()));
+    },
+  );
+
+  blocTest<InterviewCubit, InterviewState>(
+    'keeps the retry state when a historical report fails',
+    build: build,
+    setUp: () {
+      when(() => getReport(any())).thenAnswer(
+        (_) async => const Left(NetworkFailure('No internet connection')),
+      );
+    },
+    act: (cubit) => cubit.openCompletedReport('sim-9'),
+    expect: () => [
+      const InterviewState(
+        phase: InterviewPhase.finished,
+        simulationId: 'sim-9',
+        reportLoading: true,
+      ),
+      const InterviewState(
+        phase: InterviewPhase.finished,
+        simulationId: 'sim-9',
+        reportFailure: NetworkFailure('No internet connection'),
+      ),
+    ],
+    verify: (cubit) {
+      expect(cubit.state.finishResult, isNull);
+      expect(cubit.state.report, isNull);
+      verifyNever(() => finish(any()));
+    },
+  );
+
+  blocTest<InterviewCubit, InterviewState>(
+    'does not request a report for a blank simulation id',
+    build: build,
+    act: (cubit) => cubit.openCompletedReport(''),
+    expect: () => const <InterviewState>[],
+    verify: (_) => verifyNever(() => getReport(any())),
+  );
 }

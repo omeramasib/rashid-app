@@ -42,6 +42,8 @@ class ApiEndpoints {
   static const String interviewFinish = '/api/v1/interview/finish';
   static const String interviewReport = '/api/v1/interview/report';
   static const String interviewHistory = '/api/v1/interview/simulations';
+  static const String interviewPerformanceSummary =
+      '/api/v1/interview/performance/summary';
 
   static String interviewRetry(String simulationId) =>
       '/api/v1/interview/simulations/$simulationId/retry';
