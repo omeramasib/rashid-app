@@ -35,16 +35,16 @@ class InterviewResultScreen extends StatelessWidget {
                     total: result?.totalQuestions ?? state.questions.length,
                   ),
                   const SizedBox(height: 16),
-                  if (result == null)
+                  if (result != null)
+                    _summary(context, result)
+                  else if (!state.reportLoading && state.reportFailure == null)
                     Text(
                       AppLocalizations.tr(context, 'interview_empty_session'),
                       style: AppTypography.regular(
                         fontSize: 16,
                         color: AppColors.fontColor,
                       ),
-                    )
-                  else
-                    _summary(context, result),
+                    ),
                   const SizedBox(height: 16),
                   _report(context, state),
                   const SizedBox(height: 16),
