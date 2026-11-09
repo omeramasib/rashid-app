@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "22331655956",
+    "project_id": "rashed-app-2e759",
+    "storage_bucket": "rashed-app-2e759.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:22331655956:android:1db689aeb4637213582401",
+        "android_client_info": {
+          "package_name": "com.example.rashed_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPu0vVZrJKH6e9rVCJagMKYaNPRxpT6Qg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

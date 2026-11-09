@@ -32,17 +32,23 @@ class PerformanceSummary extends Equatable {
   final int? averageScore;
 
   /// Aggregate high score. This is not a simulation id.
-  ///
-  /// Sharing this result needs a future `best_simulation_id` on
-  /// `GET /api/v1/interview/performance/summary`. Until then the best-score
-  /// chip stays disabled. Do not substitute a recent interview id.
   final int? bestScore;
+
+  /// Simulation that produced [bestScore].
+  ///
+  /// `GET /api/v1/interview/performance/summary` does not return this today.
+  /// `GET /api/v1/interview/simulations` returns `id`, `job_field`, and
+  /// `created_at` only, with no score and no paging, so the best simulation
+  /// cannot be derived. The best-result share stays disabled until the
+  /// summary includes `best_simulation_id`. Do not substitute a recent id.
+  final String? bestSimulationId;
   final List<RecentInterview> recentInterviews;
 
   const PerformanceSummary({
     this.totalSimulations,
     this.averageScore,
     this.bestScore,
+    this.bestSimulationId,
     this.recentInterviews = const [],
   });
 
@@ -51,6 +57,7 @@ class PerformanceSummary extends Equatable {
         totalSimulations,
         averageScore,
         bestScore,
+        bestSimulationId,
         recentInterviews,
       ];
 }

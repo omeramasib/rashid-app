@@ -138,10 +138,12 @@ void main() {
       find.text('This text will be published to your LinkedIn profile.'),
       findsOneWidget,
     );
+    verifyNever(() => publish(any()));
 
     await tester.tap(find.byKey(const Key('linkedin_publish_button')));
     await tester.pump();
 
+    expect(find.byKey(const Key('linkedin_publish_button')), findsNothing);
     verify(() => publish(any())).called(1);
     expect(find.text('Publishing'), findsOneWidget);
 

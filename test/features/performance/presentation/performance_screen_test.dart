@@ -131,8 +131,7 @@ void main() {
     verify(() => interviewCubit.openCompletedReport('sim-9')).called(1);
   });
 
-  testWidgets(
-      'disables aggregate share targets and shares the selected interview',
+  testWidgets('shares the latest home result and not an inferred best result',
       (tester) async {
     when(() => getSummary(any())).thenAnswer(
       (_) async => const Right(PerformanceSummary(
@@ -170,14 +169,18 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(
-      tester
-          .widget<IgnorePointer>(
-              find.byKey(const Key('home_share_card_disabled')))
-          .ignoring,
-      isTrue,
-    );
+    expect(find.text('Share your latest result'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('home_share_button')));
+    await tester.pumpAndSettle();
 
+    expect(routeName, RoutesName.linkedinShare);
+    final homeRequest = shareArguments! as LinkedInShareRequest;
+    expect(homeRequest.simulationId, 'sim-9');
+    expect(homeRequest.resultLabel, 'Programming · 85%');
+    verifyNever(() => interviewCubit.openCompletedReport(any()));
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.show_chart_rounded));
     await tester.pumpAndSettle();
     expect(

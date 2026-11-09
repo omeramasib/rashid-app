@@ -36,6 +36,7 @@ void main() {
     expect(summary.totalSimulations, 3);
     expect(summary.averageScore, 72);
     expect(summary.bestScore, 85);
+    expect(summary.bestSimulationId, isNull);
     expect(summary.recentInterviews, hasLength(3));
     expect(
       summary.recentInterviews[0].simulationId,
@@ -81,6 +82,7 @@ void main() {
     expect(summary.totalSimulations, 0);
     expect(summary.averageScore, isNull);
     expect(summary.bestScore, isNull);
+    expect(summary.bestSimulationId, isNull);
     expect(summary.recentInterviews, isEmpty);
   });
 
@@ -127,6 +129,43 @@ void main() {
     expect(summary.recentInterviews.single.jobField, isNull);
     expect(summary.recentInterviews.single.completedAt, isNull);
     expect(summary.recentInterviews.single.score, 70);
+  });
+
+  test('reads only an explicit best simulation id', () {
+    final summary = PerformanceSummaryModel.fromJson({
+      'best_score': 90,
+      'best_simulation_id': ' sim-best ',
+      'recent_interviews': [
+        {
+          'simulation_id': 'sim-latest',
+          'score': 90,
+          'completed_at': '2026-11-09T08:30:00Z',
+        },
+      ],
+    });
+
+    expect(summary.bestScore, 90);
+    expect(summary.bestSimulationId, 'sim-best');
+    expect(summary.recentInterviews.single.simulationId, 'sim-latest');
+  });
+
+  test('a blank or non-string best simulation id is ignored', () {
+    expect(
+      PerformanceSummaryModel.fromJson({
+        'best_score': 90,
+        'best_simulation_id': '   ',
+        'recent_interviews': [
+          {'simulation_id': 'sim-latest', 'score': 90},
+        ],
+      }).bestSimulationId,
+      isNull,
+    );
+    expect(
+      PerformanceSummaryModel.fromJson({
+        'best_simulation_id': 90,
+      }).bestSimulationId,
+      isNull,
+    );
   });
 
   test('null and malformed timestamps stay null', () {
