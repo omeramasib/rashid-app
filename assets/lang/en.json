@@ -304,5 +304,21 @@
     "interview_err_question_missing": "This question could not be found.",
     "interview_err_save_answer": "The answer could not be saved.",
     "interview_err_save_questions": "The questions could not be saved.",
-    "interview_err_audio": "Audio interviews are not available."
+    "interview_err_audio": "Audio interviews are not available.",
+    "speech_mic_tooltip": "Answer by voice",
+    "speech_mic_stop_tooltip": "Stop recording",
+    "speech_listening": "Listening...",
+    "speech_processing": "Finishing transcription...",
+    "speech_preparing": "Preparing the microphone...",
+    "speech_done": "Done",
+    "speech_permission_denied": "Microphone access is needed to answer by voice. Tap the microphone to try again.",
+    "speech_permission_permanently_denied": "Microphone or speech recognition access is turned off. Enable it in Settings to answer by voice.",
+    "speech_open_settings": "Open Settings",
+    "speech_unavailable": "Speech recognition is not available on this device. You can still type your answer.",
+    "speech_language_unavailable": "Speech recognition for this interview language is not available on this device. You can still type your answer.",
+    "speech_no_speech": "We didn't catch any speech. Tap the microphone and try again.",
+    "speech_interrupted": "Recording was interrupted. Tap the microphone to try again.",
+    "speech_network": "Speech recognition needs a connection on this device. Check your connection and try again.",
+    "speech_error_generic": "Speech recognition failed. You can try again or type your answer.",
+    "speech_dismiss": "Dismiss"
 }

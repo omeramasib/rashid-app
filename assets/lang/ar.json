@@ -304,5 +304,21 @@
     "interview_err_question_missing": "تعذر العثور على هذا السؤال.",
     "interview_err_save_answer": "تعذر حفظ الإجابة.",
     "interview_err_save_questions": "تعذر حفظ الأسئلة.",
-    "interview_err_audio": "المقابلات الصوتية غير متاحة."
+    "interview_err_audio": "المقابلات الصوتية غير متاحة.",
+    "speech_mic_tooltip": "أجب بصوتك",
+    "speech_mic_stop_tooltip": "إيقاف التسجيل",
+    "speech_listening": "جاري الاستماع...",
+    "speech_processing": "جاري إنهاء التحويل إلى نص...",
+    "speech_preparing": "جاري تجهيز الميكروفون...",
+    "speech_done": "إنهاء",
+    "speech_permission_denied": "نحتاج إلى إذن الميكروفون لتتمكن من الإجابة بصوتك. اضغط على الميكروفون للمحاولة مرة أخرى.",
+    "speech_permission_permanently_denied": "إذن الميكروفون أو التعرف على الكلام غير مفعّل. فعّله من الإعدادات لتتمكن من الإجابة بصوتك.",
+    "speech_open_settings": "فتح الإعدادات",
+    "speech_unavailable": "التعرف على الكلام غير متاح على هذا الجهاز. يمكنك كتابة إجابتك.",
+    "speech_language_unavailable": "التعرف على الكلام بلغة هذه المقابلة غير متاح على هذا الجهاز. يمكنك كتابة إجابتك.",
+    "speech_no_speech": "لم نتمكن من التقاط أي كلام. اضغط على الميكروفون وحاول مرة أخرى.",
+    "speech_interrupted": "توقف التسجيل. اضغط على الميكروفون للمحاولة مرة أخرى.",
+    "speech_network": "يحتاج التعرف على الكلام إلى اتصال بالإنترنت على هذا الجهاز. تحقق من الاتصال وحاول مرة أخرى.",
+    "speech_error_generic": "تعذر التعرف على الكلام. يمكنك المحاولة مرة أخرى أو كتابة إجابتك.",
+    "speech_dismiss": "إغلاق"
 }

@@ -1063,23 +1063,41 @@ class _InterviewRow extends StatelessWidget {
                 ),
                 child: Text(
                   badge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTypography.regular(fontSize: 14, color: badgeColor),
                 ),
               ),
-            const Spacer(),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(title,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
                     style: AppTypography.regular(
-                        fontSize: 14, color: AppColors.fontColor)),
-                if (date != null) ...[
-                  const SizedBox(height: 4),
-                  Text(date,
+                      fontSize: 14,
+                      color: AppColors.fontColor,
+                    ),
+                  ),
+                  if (date != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      date,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
                       style: AppTypography.regular(
-                          fontSize: 12, color: AppColors.hintColor)),
+                        fontSize: 12,
+                        color: AppColors.hintColor,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ],
         ),
