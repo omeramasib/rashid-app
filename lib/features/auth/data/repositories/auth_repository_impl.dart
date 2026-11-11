@@ -57,6 +57,19 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, void>> linkLinkedIn({
+    required String clerkSessionJwt,
+    required String currentPassword,
+  }) {
+    return _handleVoidAuthRequest(
+      () => remoteDataSource.linkLinkedIn(
+        clerkSessionJwt: clerkSessionJwt,
+        currentPassword: currentPassword,
+      ),
+    );
+  }
+
+  @override
   Future<Either<Failure, void>> forgotPassword(String email) async {
     return _handlePasswordRequest(
       () => remoteDataSource.forgotPassword(email),
@@ -134,6 +147,8 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(ForbiddenFailure(e.message));
     } on NotFoundException catch (e) {
       return Left(NotFoundFailure(e.message));
+    } on ConflictException catch (e) {
+      return Left(ConflictFailure(e.message));
     } on NetworkException catch (e) {
       return Left(NetworkFailure(e.message));
     } on UpstreamException catch (e) {

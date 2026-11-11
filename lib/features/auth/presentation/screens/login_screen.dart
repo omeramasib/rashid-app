@@ -11,6 +11,7 @@ import '../../../../Presentation/utils/fonts.dart';
 import '../../../../Presentation/utils/validations.dart';
 import '../../../../app_localizations.dart';
 import '../cubit/login/login_cubit.dart';
+import '../linkedin_email_conflict_notice.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,11 +24,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocus = FocusNode();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocus.dispose();
     super.dispose();
   }
 
@@ -106,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
               RoutesName.home,
               (route) => false,
             );
-          } else if (state is LoginFailure) {
+          } else if (state is LoginFailure && !state.offerEmailSignIn) {
             CustomSnackBars.errorSnackBar(
               context: context,
               message: AppLocalizations.message(context, state.message),
@@ -144,6 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 30),
                     TextFormField(
                       controller: _emailController,
+                      focusNode: _emailFocus,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
                       decoration: InputDecoration(
@@ -242,6 +246,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               cubit.loginWithLinkedIn(context);
                             },
                           ),
+                    if (state is LoginFailure && state.offerEmailSignIn) ...[
+                      const SizedBox(height: 12),
+                      LinkedInEmailConflictNotice(
+                        onSignInWithEmail: () => _emailFocus.requestFocus(),
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,

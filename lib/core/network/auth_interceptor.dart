@@ -1,16 +1,13 @@
 import 'package:dio/dio.dart';
+
+import '../auth/rashed_session.dart';
+import '../auth/rashed_session_rejection.dart';
 import 'api_endpoints.dart';
-import '../storage/secure_storage_service.dart';
 
 class AuthInterceptor extends Interceptor {
-  final SecureStorageService _storage;
+  final RashedSession _session;
 
-  AuthInterceptor(this._storage);
-
-  static bool _isPasswordResetRequest(String path) =>
-      path == ApiEndpoints.forgotPassword ||
-      path == ApiEndpoints.resendOtp ||
-      path == ApiEndpoints.resetPassword;
+  AuthInterceptor(this._session);
 
   @override
   void onRequest(
@@ -20,7 +17,7 @@ class AuthInterceptor extends Interceptor {
       handler.next(options);
       return;
     }
-    final token = await _storage.read(key: 'token');
+    final token = await _session.readToken();
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
@@ -29,12 +26,19 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-    if (err.response?.statusCode == 401 &&
-        !_isPasswordResetRequest(err.requestOptions.path)) {
-      // Clear stale session
-      await _storage.deleteAll();
-      // Optionally fire an event on a global auth stream if needed
+    if (shouldClearRashedSession(
+      statusCode: err.response?.statusCode,
+      path: err.requestOptions.path,
+      wwwAuthenticate: err.response?.headers.value('www-authenticate'),
+      detail: responseDetail(err.response?.data),
+    )) {
+      await _session.clear();
     }
-    handler.next(err); // Let ResponseInterceptor also see it
+    handler.next(err);
   }
+
+  static bool _isPasswordResetRequest(String path) =>
+      path == ApiEndpoints.forgotPassword ||
+      path == ApiEndpoints.resendOtp ||
+      path == ApiEndpoints.resetPassword;
 }

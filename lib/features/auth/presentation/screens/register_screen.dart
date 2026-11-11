@@ -11,6 +11,7 @@ import '../../../../Presentation/utils/images.dart';
 import '../../../../Presentation/utils/styles.dart';
 import '../../../../Presentation/utils/validations.dart';
 import '../cubit/register/register_cubit.dart';
+import '../linkedin_email_conflict_notice.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -314,13 +315,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             CustomSnackBars.sucssesSnackBar(
                               context: context,
                               message: AppLocalizations.of(context)!
-                                .translate("register_successfully"),
+                                  .translate("register_successfully"),
                             );
                             Navigator.pushReplacementNamed(
                               context,
                               RoutesName.linkedinImport,
                             );
-                          } else if (state is RegisterFailure) {
+                          } else if (state is RegisterFailure &&
+                              !state.offerEmailSignIn) {
                             CustomSnackBars.errorSnackBar(
                               context: context,
                               message: AppLocalizations.message(
@@ -381,10 +383,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           }
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: _buildLinkedInButton(
-                              text: AppLocalizations.of(context)!
-                                  .translate('login_with_linkedin'),
-                              onPressed: registerWithLinkedIn,
+                            child: Column(
+                              children: [
+                                _buildLinkedInButton(
+                                  text: AppLocalizations.of(context)!
+                                      .translate('login_with_linkedin'),
+                                  onPressed: registerWithLinkedIn,
+                                ),
+                                if (state is RegisterFailure &&
+                                    state.offerEmailSignIn) ...[
+                                  const SizedBox(height: 12),
+                                  LinkedInEmailConflictNotice(
+                                    onSignInWithEmail: () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        RoutesName.login,
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ],
                             ),
                           );
                         },

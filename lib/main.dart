@@ -20,6 +20,8 @@ import 'package:rashed_app/features/linkedin/presentation/linkedin_share_present
 
 import 'features/auth/presentation/cubit/login/login_cubit.dart';
 import 'features/auth/presentation/cubit/register/register_cubit.dart';
+import 'package:rashed_app/core/auth/rashed_session.dart';
+import 'package:rashed_app/core/auth/rashed_session_navigator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,10 +61,13 @@ class MyApp extends StatelessWidget {
               navigatorKey: rootNavigatorKey,
               navigatorObservers: [di.sl<LinkedInShareRouteObserver>()],
               builder: (context, child) {
-                return LinkedInSharePresenter(
-                  observer: di.sl<LinkedInShareRouteObserver>(),
-                  cubit: di.sl<LinkedInShareCubit>(),
-                  child: child ?? const SizedBox.shrink(),
+                return RashedSessionNavigator(
+                  session: di.sl<RashedSession>(),
+                  child: LinkedInSharePresenter(
+                    observer: di.sl<LinkedInShareRouteObserver>(),
+                    cubit: di.sl<LinkedInShareCubit>(),
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 );
               },
               locale: state.locale,

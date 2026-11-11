@@ -54,6 +54,27 @@ void main() {
       expect(result.token, isNull);
     });
 
+    test('reads the current user id and linkedin_linked', () {
+      final result = UserModel.fromJson({
+        'id': 'user-1',
+        'name': 'Ada',
+        'email': 'ada@example.com',
+        'linkedin_linked': true,
+      });
+      expect(result.id, 'user-1');
+      expect(result.email, 'ada@example.com');
+      expect(result.linkedinLinked, isTrue);
+      expect(result.token, isNull);
+    });
+
+    test('does not treat a non-boolean linkedin flag as linked', () {
+      final result = UserModel.fromJson({
+        'id': 'user-1',
+        'linkedin_linked': 'true',
+      });
+      expect(result.linkedinLinked, isFalse);
+    });
+
     test('should handle missing optional fields gracefully', () async {
       // arrange
       final Map<String, dynamic> jsonMap = json.decode('{"token": "only_token"}');

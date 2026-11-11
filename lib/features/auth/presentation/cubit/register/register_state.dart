@@ -25,10 +25,11 @@ class RegisterSuccess extends RegisterState {
 
 class RegisterFailure extends RegisterState {
   final String message;
-  const RegisterFailure(this.message);
+  final bool offerEmailSignIn;
+  const RegisterFailure(this.message, {this.offerEmailSignIn = false});
 
   @override
-  List<Object> get props => [message];
+  List<Object> get props => [message, offerEmailSignIn];
 }
 
 class ViewPasswordState extends RegisterState {

@@ -9,6 +9,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/error/failures.dart';
+import 'package:rashed_app/core/auth/rashed_session.dart';
 import 'package:rashed_app/core/storage/secure_storage_service.dart';
 import 'package:rashed_app/core/usecases/usecase.dart';
 import 'package:rashed_app/features/cv/data/datasources/cv_local_datasource.dart';
@@ -84,6 +85,7 @@ void main() {
     addTearDown(ticks.dispose);
     final sl = GetIt.instance;
     sl.registerSingleton<SecureStorageService>(storage);
+    sl.registerSingleton(RashedSession(storage));
     sl.registerSingleton(CvLocalDataSource(storage: storage));
     addTearDown(sl.reset);
 

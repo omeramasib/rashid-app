@@ -3,14 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'auth_interceptor.dart';
 import 'response_interceptor.dart';
 import 'api_endpoints.dart';
+import '../auth/rashed_session.dart';
 import '../localization/accept_language.dart';
-import '../storage/secure_storage_service.dart';
 
 class DioClient {
   late final Dio dio;
 
   DioClient({
-    required SecureStorageService storage,
+    required RashedSession session,
     String Function()? languageCode,
   }) {
     final resolveLanguage = languageCode ?? () => 'ar';
@@ -32,7 +32,7 @@ class DioClient {
           handler.next(options);
         },
       ),
-      AuthInterceptor(storage),
+      AuthInterceptor(session),
       ResponseInterceptor(),
       if (kDebugMode)
         LogInterceptor(
