@@ -50,6 +50,13 @@ String? _jobField(dynamic value) {
   return trimmed;
 }
 
+String? _simulationId(dynamic value) {
+  if (value is! String) return null;
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return null;
+  return trimmed;
+}
+
 class RecentInterviewModel extends RecentInterview {
   const RecentInterviewModel({
     required super.simulationId,
@@ -77,6 +84,7 @@ class PerformanceSummaryModel extends PerformanceSummary {
     super.totalSimulations,
     super.averageScore,
     super.bestScore,
+    super.bestSimulationId,
     super.recentInterviews,
   });
 
@@ -85,6 +93,7 @@ class PerformanceSummaryModel extends PerformanceSummary {
       totalSimulations: _optionalInt(json['total_simulations']),
       averageScore: _optionalInt(json['average_score']),
       bestScore: _optionalInt(json['best_score']),
+      bestSimulationId: _simulationId(json['best_simulation_id']),
       recentInterviews: _recentInterviews(json['recent_interviews']),
     );
   }

@@ -19,8 +19,11 @@ class ApiEndpoints {
   static const String logout = '/auth/logout';
   static const String currentUser = '/auth/me';
 
-  // LinkedIn
-  static const String linkedInConnect = '/api/v1/linkedin/connect';
+  // LinkedIn publishing. The OAuth callback stays on the backend.
+  static const String linkedInStatus = '/api/v1/linkedin/status';
+  static const String linkedInOAuthStart = '/api/v1/linkedin/oauth/start';
+  static const String linkedInSharePreview = '/api/v1/linkedin/share/preview';
+  static const String linkedInPublish = '/api/v1/linkedin/publish';
   static const String linkedInDisconnect = '/api/v1/linkedin/disconnect';
 
   // CV
@@ -38,13 +41,10 @@ class ApiEndpoints {
   static const String interviewFinish = '/api/v1/interview/finish';
   static const String interviewReport = '/api/v1/interview/report';
   static const String interviewHistory = '/api/v1/interview/simulations';
+  static const String interviewHistoryCount = '/api/v1/interview/history/count';
   static const String interviewPerformanceSummary =
       '/api/v1/interview/performance/summary';
 
   static String interviewRetry(String simulationId) =>
       '/api/v1/interview/simulations/$simulationId/retry';
-
-  // Home
-  static const String shareInterviewResult =
-      '/api/v1/home/share-last-interview-result';
 }

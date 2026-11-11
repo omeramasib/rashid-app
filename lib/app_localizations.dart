@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -104,13 +105,24 @@ class AppLocalizations {
 class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const AppLocalizationsDelegate();
 
+  /// Catalogs do not change at runtime. Reusing one avoids a second async
+  /// load, which would defer the first frame until it completed.
+  static final Map<String, AppLocalizations> _loaded = {};
+
   @override
   bool isSupported(Locale locale) => ['en', 'ar'].contains(locale.languageCode);
 
   @override
-  Future<AppLocalizations> load(Locale locale) async {
-    AppLocalizations localizations = AppLocalizations(locale);
+  Future<AppLocalizations> load(Locale locale) {
+    final cached = _loaded[locale.languageCode];
+    if (cached != null) return SynchronousFuture<AppLocalizations>(cached);
+    return _read(locale);
+  }
+
+  Future<AppLocalizations> _read(Locale locale) async {
+    final localizations = AppLocalizations(locale);
     await localizations.loadJsonLanguage();
+    _loaded[locale.languageCode] = localizations;
     return localizations;
   }
 

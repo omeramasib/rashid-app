@@ -61,6 +61,10 @@ class ConflictException extends AppException {
   ConflictException(super.message);
 }
 
+class GoneException extends AppException {
+  GoneException(super.message);
+}
+
 class PayloadTooLargeException extends AppException {
   PayloadTooLargeException(super.message);
 }

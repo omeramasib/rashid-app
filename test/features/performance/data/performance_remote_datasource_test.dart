@@ -79,6 +79,7 @@ void main() {
     expect(summary.totalSimulations, 3);
     expect(summary.averageScore, 72);
     expect(summary.bestScore, 85);
+    expect(summary.bestSimulationId, isNull);
     expect(summary.recentInterviews.single.simulationId, 'sim-1');
     expect(
       summary.recentInterviews.single.performanceStatus,

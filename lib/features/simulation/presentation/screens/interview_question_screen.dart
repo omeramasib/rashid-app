@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -5,11 +7,16 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import '../../../../app/routes_name.dart';
 import '../../../../app_localizations.dart';
 import '../../../../core/localization/app_text_direction.dart';
+import '../../../../core/speech/append_transcript.dart';
 import '../../../../core/theme/theme.dart';
 import '../../domain/interview_options.dart';
 import '../cubit/interview_cubit.dart';
+import '../cubit/speech_input_cubit.dart';
 import '../interview_error_text.dart';
 import '../widgets/interview_widgets.dart';
+import '../widgets/speech_input_button.dart';
+import '../widgets/speech_input_message.dart';
+import '../widgets/speech_listening_indicator.dart';
 
 class InterviewQuestionScreen extends HookWidget {
   const InterviewQuestionScreen({super.key});
@@ -18,13 +25,18 @@ class InterviewQuestionScreen extends HookWidget {
   Widget build(BuildContext context) {
     final controller = useTextEditingController();
     final state = context.watch<InterviewCubit>().state;
+    final speechCubit = context.read<SpeechInputCubit>();
     final question = state.currentQuestion;
     final savedAnswer =
         question == null ? null : state.submittedAnswers[question.id];
+    final appliedSession = useRef(0);
     useEffect(() {
       controller.text = savedAnswer ?? '';
       return null;
     }, [question?.id, savedAnswer]);
+    useEffect(() {
+      return () => unawaited(speechCubit.cancel());
+    }, [question?.id]);
     useListenable(controller);
 
     return Directionality(
@@ -60,20 +72,31 @@ class InterviewQuestionScreen extends HookWidget {
             if (didPop) return;
             _confirmFinish(context);
           },
-          child: Scaffold(
-            backgroundColor: AppColors.white,
-            body: SafeArea(
-              child: Column(
-                children: [
-                  InterviewTopBar(
-                    title: AppLocalizations.tr(
-                      context,
-                      'interview_questions_title',
+          child: BlocListener<SpeechInputCubit, SpeechInputState>(
+            listenWhen: (previous, current) =>
+                current.transcript != null &&
+                previous.transcript != current.transcript,
+            listener: (context, speech) => _applyTranscript(
+              context,
+              speech.transcript!,
+              controller,
+              appliedSession,
+            ),
+            child: Scaffold(
+              backgroundColor: AppColors.white,
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    InterviewTopBar(
+                      title: AppLocalizations.tr(
+                        context,
+                        'interview_questions_title',
+                      ),
+                      onBack: () => _confirmFinish(context),
                     ),
-                    onBack: () => _confirmFinish(context),
-                  ),
-                  Expanded(child: _body(context, state, controller)),
-                ],
+                    Expanded(child: _body(context, state, controller)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -102,8 +125,14 @@ class InterviewQuestionScreen extends HookWidget {
     final evaluation = state.evaluations[question.id];
     final readOnly = evaluation != null;
     final submitting = state.phase == InterviewPhase.submitting;
-    final canSubmit =
-        controller.text.trim().isNotEmpty && !submitting && !readOnly;
+    final speechCubit = context.read<SpeechInputCubit>();
+    final speech = context.watch<SpeechInputCubit>().state;
+    final recording = speech.status.isActive;
+    final canSubmit = controller.text.trim().isNotEmpty &&
+        !submitting &&
+        !readOnly &&
+        !recording;
+    final showSpeech = !readOnly && !submitting;
     final routeCurrent = ModalRoute.of(context)?.isCurrent ?? true;
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -161,8 +190,33 @@ class InterviewQuestionScreen extends HookWidget {
             hintText: AppLocalizations.tr(context, 'answer_hint'),
             filled: true,
             fillColor: AppColors.white,
+            suffixIcon: showSpeech
+                ? SpeechInputButton(
+                    status: speech.status,
+                    onStart: () => speechCubit.start(
+                      questionId: question.id,
+                      languageCode: state.languageCode ??
+                          Localizations.localeOf(context).languageCode,
+                    ),
+                    onStop: speechCubit.finish,
+                  )
+                : null,
           ),
         ),
+        if (showSpeech && recording) ...[
+          const SizedBox(height: 8),
+          SpeechListeningIndicator(
+            status: speech.status,
+            partialText: speech.partialText,
+            onDone: speechCubit.finish,
+          ),
+        ],
+        if (showSpeech && speech.questionId == question.id)
+          SpeechInputMessage(
+            state: speech,
+            onOpenSettings: speechCubit.openSettings,
+            onDismiss: speechCubit.dismiss,
+          ),
         if (state.error != null && routeCurrent) ...[
           const SizedBox(height: 8),
           InterviewErrorBanner(
@@ -217,7 +271,10 @@ class InterviewQuestionScreen extends HookWidget {
                   busy: submitting,
                   onPressed: submitting
                       ? null
-                      : () => context.read<InterviewCubit>().skip(),
+                      : () {
+                          unawaited(speechCubit.cancel());
+                          context.read<InterviewCubit>().skip();
+                        },
                 ),
               ),
               const SizedBox(width: 10),
@@ -244,7 +301,32 @@ class InterviewQuestionScreen extends HookWidget {
   }
 }
 
+/// Appends a committed transcript once, and only to the question it was
+/// recorded for.
+void _applyTranscript(
+  BuildContext context,
+  SpeechTranscript transcript,
+  TextEditingController controller,
+  ObjectRef<int> appliedSession,
+) {
+  final state = context.read<InterviewCubit>().state;
+  final question = state.currentQuestion;
+  if (question == null || question.id != transcript.questionId) return;
+  if (state.evaluations.containsKey(question.id)) return;
+  if (transcript.sessionId <= appliedSession.value) return;
+  appliedSession.value = transcript.sessionId;
+  var text = appendTranscript(controller.text, transcript.text);
+  if (text.length > InterviewOptions.maxAnswerLength) {
+    text = text.substring(0, InterviewOptions.maxAnswerLength);
+  }
+  controller.value = TextEditingValue(
+    text: text,
+    selection: TextSelection.collapsed(offset: text.length),
+  );
+}
+
 Future<void> _confirmFinish(BuildContext context) async {
+  unawaited(context.read<SpeechInputCubit>().interrupt());
   final cubit = context.read<InterviewCubit>();
   final phase = cubit.state.phase;
   if (phase == InterviewPhase.finishing || phase == InterviewPhase.finished) {

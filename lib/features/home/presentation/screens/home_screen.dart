@@ -16,13 +16,17 @@ import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/localization/app_text_direction.dart';
 import 'package:rashed_app/core/theme/theme.dart';
 import 'package:rashed_app/features/performance/domain/entities/performance_summary.dart';
+import 'package:rashed_app/features/performance/domain/shareable_simulation.dart';
 import 'package:rashed_app/features/performance/presentation/cubit/performance_cubit.dart';
 import 'package:rashed_app/features/performance/presentation/performance_format.dart';
 import 'package:rashed_app/features/simulation/presentation/cubit/interview_cubit.dart';
 import 'package:rashed_app/features/simulation/presentation/interview_error_text.dart';
+import 'package:rashed_app/features/linkedin/presentation/linkedin_share_request.dart';
 
 class HomeScreen extends HookWidget {
   const HomeScreen({super.key, this.simulationHistoryCountCubit});
+
+  static const int performanceTab = 1;
 
   final SimulationHistoryCountCubit? simulationHistoryCountCubit;
 
@@ -34,7 +38,9 @@ class HomeScreen extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentIndex = useState(0);
+    final routeArgs = ModalRoute.of(context)?.settings.arguments;
+    final initialTab = routeArgs == performanceTab ? performanceTab : 0;
+    final currentIndex = useState(initialTab);
     final countCubit = useMemoized(_resolveCountCubit, [
       simulationHistoryCountCubit,
     ]);
@@ -123,12 +129,20 @@ class HomeScreen extends HookWidget {
   }
 }
 
-class _HomeBody extends StatelessWidget {
+class _HomeBody extends HookWidget {
   const _HomeBody();
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    final cubit = useMemoized(_homePerformanceCubit);
+    useEffect(() {
+      final resolved = cubit;
+      if (resolved == null) return null;
+      resolved.load();
+      return resolved.close;
+    }, [cubit]);
+
+    final scroll = SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
@@ -142,7 +156,7 @@ class _HomeBody extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _ShareCard()),
+              const Expanded(child: _HomeShareCard()),
               const SizedBox(width: 12),
               Expanded(child: _SimCountCard()),
             ],
@@ -171,6 +185,37 @@ class _HomeBody extends StatelessWidget {
         ],
       ),
     );
+    if (cubit == null) return scroll;
+    return BlocProvider.value(
+      value: cubit,
+      child: BlocListener<PerformanceCubit, PerformanceState>(
+        listenWhen: (previous, current) =>
+            current is PerformanceFailure &&
+            current.failure is UnauthorizedFailure &&
+            previous is! PerformanceFailure,
+        listener: (context, state) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            RoutesName.login,
+            (route) => false,
+          );
+        },
+        child: scroll,
+      ),
+    );
+  }
+}
+
+PerformanceCubit? _homePerformanceCubit() {
+  if (!di.sl.isRegistered<PerformanceCubit>()) return null;
+  return di.sl<PerformanceCubit>();
+}
+
+PerformanceCubit? _performanceCubitOf(BuildContext context) {
+  try {
+    return context.read<PerformanceCubit>();
+  } on ProviderNotFoundException {
+    return null;
   }
 }
 
@@ -189,6 +234,8 @@ Future<void> _openSimulation(
   await openInterviewSimulation(context, mode);
   if (!context.mounted) return;
   await _countCubitOf(context)?.refresh();
+  if (!context.mounted) return;
+  await _performanceCubitOf(context)?.load();
 }
 
 class _WelcomeBanner extends StatelessWidget {
@@ -230,7 +277,131 @@ class _WelcomeBanner extends StatelessWidget {
   }
 }
 
+class _UnavailableShareTarget extends StatelessWidget {
+  const _UnavailableShareTarget({
+    required this.shareKey,
+    required this.child,
+  });
+
+  final Key shareKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      key: shareKey,
+      ignoring: true,
+      child: Opacity(
+        opacity: 0.45,
+        child: Semantics(
+          button: true,
+          enabled: false,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeShareCard extends StatelessWidget {
+  const _HomeShareCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = _performanceCubitOf(context);
+    if (cubit == null) {
+      return const _ShareCard(
+        action: _UnavailableShareTarget(
+          shareKey: Key('home_share_card_disabled'),
+          child: _ShareMyResultButton(expanded: true),
+        ),
+      );
+    }
+    return BlocBuilder<PerformanceCubit, PerformanceState>(
+      builder: (context, state) {
+        if (state is PerformanceInitial || state is PerformanceLoading) {
+          return const _ShareCard(
+            action: SizedBox(
+              height: 34,
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    key: Key('home_share_loading'),
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+        if (state is PerformanceFailure) {
+          return _ShareCard(
+            action: Column(
+              children: [
+                Text(
+                  interviewErrorText(context, state.failure),
+                  key: const Key('home_share_error'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.regular(
+                    fontSize: 11,
+                    color: AppColors.error,
+                  ),
+                ),
+                GestureDetector(
+                  key: const Key('home_share_retry'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => context.read<PerformanceCubit>().load(),
+                  child: Text(
+                    AppLocalizations.tr(context, 'interview_retry'),
+                    style: AppTypography.regular(
+                      fontSize: 11,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        final summary = state is PerformanceSuccess ? state.summary : null;
+        final interview = summary == null
+            ? null
+            : latestShareableInterview(summary.recentInterviews);
+        if (interview == null) {
+          return const _ShareCard(
+            action: _UnavailableShareTarget(
+              shareKey: Key('home_share_card_disabled'),
+              child: _ShareMyResultButton(expanded: true),
+            ),
+          );
+        }
+        final label = recentInterviewShareLabel(
+          interview,
+          AppLocalizations.tr(context, 'performance_mock_interview'),
+        );
+        return _ShareCard(
+          action: _LinkedInShareControl(
+            simulationId: interview.simulationId,
+            resultLabel: label,
+            enabledKey: const Key('home_share_button'),
+            disabledKey: const Key('home_share_card_disabled'),
+            child: const _ShareMyResultButton(expanded: true),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _ShareCard extends StatelessWidget {
+  const _ShareCard({required this.action});
+
+  final Widget action;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -257,33 +428,89 @@ class _ShareCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             AppLocalizations.tr(context, 'share_last_result'),
+            key: const Key('home_share_title'),
             style:
                 AppTypography.regular(fontSize: 12, color: AppColors.fontColor),
             textAlign: TextAlign.start,
           ),
           const Spacer(),
-          Container(
-            height: 34,
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(26),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  AppLocalizations.tr(context, 'share_my_result'),
-                  style: AppTypography.regular(
-                      fontSize: 11, color: AppColors.white),
-                ),
-                const SizedBox(width: 6),
-                const Icon(Icons.share_outlined,
-                    size: 16, color: AppColors.white),
-              ],
-            ),
-          ),
+          action,
         ],
       ),
+    );
+  }
+}
+
+class _ShareMyResultButton extends StatelessWidget {
+  const _ShareMyResultButton({this.expanded = false});
+
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      AppLocalizations.tr(context, 'share_my_result'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: AppTypography.regular(
+        fontSize: 11,
+        color: AppColors.white,
+      ),
+    );
+    return Container(
+      height: 34,
+      width: expanded ? double.infinity : null,
+      padding: expanded ? null : const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(26),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          if (expanded) Flexible(child: text) else text,
+          const SizedBox(width: 6),
+          const Icon(Icons.share_outlined, size: 16, color: AppColors.white),
+        ],
+      ),
+    );
+  }
+}
+
+class _LinkedInShareControl extends HookWidget {
+  const _LinkedInShareControl({
+    required this.simulationId,
+    required this.resultLabel,
+    required this.enabledKey,
+    required this.disabledKey,
+    required this.child,
+  });
+
+  final String? simulationId;
+  final String? resultLabel;
+  final Key enabledKey;
+  final Key disabledKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final guard = useMemoized(LinkedInShareLaunchGuard.new);
+    final id = simulationId?.trim();
+    if (id == null || id.isEmpty) {
+      return _UnavailableShareTarget(shareKey: disabledKey, child: child);
+    }
+    return GestureDetector(
+      key: enabledKey,
+      behavior: HitTestBehavior.opaque,
+      onTap: () => guard.run(
+        () => openLinkedInShare(
+          context,
+          simulationId: id,
+          resultLabel: resultLabel,
+        ),
+      ),
+      child: child,
     );
   }
 }
@@ -543,6 +770,10 @@ class _PerformanceContent extends StatelessWidget {
       children: [
         _BestResultBanner(
           score: performanceScoreText(summary.bestScore, placeholder),
+          simulationId: bestShareableSimulationId(summary),
+          resultLabel: summary.bestScore == null
+              ? null
+              : performanceScoreText(summary.bestScore, ''),
         ),
         const SizedBox(height: 10),
         Row(
@@ -609,9 +840,15 @@ class _PerformanceFailureView extends StatelessWidget {
 }
 
 class _BestResultBanner extends StatelessWidget {
-  const _BestResultBanner({required this.score});
+  const _BestResultBanner({
+    required this.score,
+    required this.simulationId,
+    required this.resultLabel,
+  });
 
   final String score;
+  final String? simulationId;
+  final String? resultLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -657,26 +894,12 @@ class _BestResultBanner extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Container(
-                  height: 34,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(26),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        AppLocalizations.tr(context, 'share_my_result'),
-                        style: AppTypography.regular(
-                            fontSize: 11, color: AppColors.white),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(Icons.share_outlined,
-                          size: 16, color: AppColors.white),
-                    ],
-                  ),
+                _LinkedInShareControl(
+                  simulationId: simulationId,
+                  resultLabel: resultLabel,
+                  enabledKey: const Key('performance_best_share'),
+                  disabledKey: const Key('performance_best_share_disabled'),
+                  child: const _ShareMyResultButton(),
                 ),
               ],
             ),
@@ -726,7 +949,7 @@ class _StatCard extends StatelessWidget {
               style: AppTypography.regular(
                   fontSize: 12, color: AppColors.fontColor)),
           const Spacer(),
-          Text(value,
+          Text(value!,
               key: valueKey,
               style: AppTypography.regular(
                   fontSize: 20, color: AppColors.primarySet2)),
@@ -804,6 +1027,7 @@ class _InterviewRow extends StatelessWidget {
       (key) => AppLocalizations.tr(context, key),
     );
     final badgeColor = _statusColor(interview.performanceStatus);
+    final resultLabel = recentInterviewShareLabel(interview, title);
     return GestureDetector(
       key: Key('performance_interview_${interview.simulationId}'),
       behavior: HitTestBehavior.opaque,
@@ -812,6 +1036,23 @@ class _InterviewRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
+            GestureDetector(
+              key: Key('performance_share_${interview.simulationId}'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => openLinkedInShare(
+                context,
+                simulationId: interview.simulationId,
+                resultLabel: resultLabel,
+              ),
+              child: const Padding(
+                padding: EdgeInsetsDirectional.only(end: 8),
+                child: Icon(
+                  Icons.share_outlined,
+                  size: 20,
+                  color: AppColors.primarySet2,
+                ),
+              ),
+            ),
             if (badge != null && badgeColor != null)
               Container(
                 padding:
@@ -822,23 +1063,41 @@ class _InterviewRow extends StatelessWidget {
                 ),
                 child: Text(
                   badge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTypography.regular(fontSize: 14, color: badgeColor),
                 ),
               ),
-            const Spacer(),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(title,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
                     style: AppTypography.regular(
-                        fontSize: 14, color: AppColors.fontColor)),
-                if (date != null) ...[
-                  const SizedBox(height: 4),
-                  Text(date,
+                      fontSize: 14,
+                      color: AppColors.fontColor,
+                    ),
+                  ),
+                  if (date != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      date,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
                       style: AppTypography.regular(
-                          fontSize: 12, color: AppColors.hintColor)),
+                        fontSize: 12,
+                        color: AppColors.hintColor,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ],
         ),

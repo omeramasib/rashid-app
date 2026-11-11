@@ -13,9 +13,6 @@ import 'package:rashed_app/core/error/failures.dart';
 import 'package:rashed_app/core/usecases/usecase.dart';
 import 'package:rashed_app/features/cv/domain/entities/cv_profile.dart';
 import 'package:rashed_app/features/cv/domain/usecases/get_my_cv_profile_usecase.dart';
-import 'package:rashed_app/features/home/domain/entities/share_result.dart';
-import 'package:rashed_app/features/home/domain/usecases/share_interview_result_usecase.dart';
-import 'package:rashed_app/features/home/presentation/cubit/home_cubit.dart';
 import 'package:rashed_app/features/simulation/domain/entities/answer_evaluation.dart';
 import 'package:rashed_app/features/simulation/domain/entities/interview_finish_result.dart';
 import 'package:rashed_app/features/simulation/domain/entities/interview_question.dart';
@@ -37,6 +34,8 @@ import 'package:rashed_app/features/simulation/presentation/screens/interview_re
 import 'package:rashed_app/features/simulation/presentation/screens/interview_setup_screen.dart';
 import 'package:rashed_app/features/simulation/presentation/widgets/interview_widgets.dart';
 
+import '../../../../helpers/fake_speech.dart';
+
 class MockStartByJob extends Mock implements StartInterviewByJobUseCase {}
 
 class MockStartByDescription extends Mock
@@ -53,8 +52,6 @@ class MockReport extends Mock implements GetInterviewReportUseCase {}
 class MockHistory extends Mock implements GetSimulationsHistoryUseCase {}
 
 class MockProfile extends Mock implements GetMyCvProfileUseCase {}
-
-class MockShare extends Mock implements ShareInterviewResultUseCase {}
 
 class LoadedLocalizationsDelegate
     extends LocalizationsDelegate<AppLocalizations> {
@@ -127,9 +124,7 @@ void main() {
   late MockFinish finish;
   late MockReport getReport;
   late MockProfile profile;
-  late MockShare share;
   late InterviewCubit cubit;
-  late HomeCubit homeCubit;
 
   setUpAll(() async {
     for (final code in ['en', 'ar']) {
@@ -162,7 +157,6 @@ void main() {
     ));
     registerFallbackValue(const FinishInterviewParams(simulationId: 'sim'));
     registerFallbackValue(const GetInterviewReportParams(simulationId: 'sim'));
-    registerFallbackValue(const ShareInterviewResultParams());
     registerFallbackValue(NoParams());
   });
 
@@ -174,7 +168,6 @@ void main() {
     finish = MockFinish();
     getReport = MockReport();
     profile = MockProfile();
-    share = MockShare();
     when(() => profile(any())).thenAnswer((_) async => const Right(null));
     when(() => startByJob(any())).thenAnswer((_) async => const Right(started));
     when(() => startByDescription(any()))
@@ -183,10 +176,6 @@ void main() {
     when(() => submit(any())).thenAnswer((_) async => const Right(evaluation));
     when(() => finish(any())).thenAnswer((_) async => const Right(finished));
     when(() => getReport(any())).thenAnswer((_) async => const Right(report));
-    when(() => share(any())).thenAnswer(
-      (_) async => const Right(
-          ShareResult(postUrl: 'https://example.test/post', postUrn: 'urn')),
-    );
     cubit = InterviewCubit(
       startInterviewByJobUseCase: startByJob,
       startInterviewByJobDescriptionUseCase: startByDescription,
@@ -197,12 +186,10 @@ void main() {
       getSimulationsHistoryUseCase: MockHistory(),
       getMyCvProfileUseCase: profile,
     );
-    homeCubit = HomeCubit(shareInterviewResultUseCase: share);
   });
 
   tearDown(() async {
     await cubit.close();
-    await homeCubit.close();
   });
 
   Future<void> pump(
@@ -226,7 +213,10 @@ void main() {
       home: home,
       onGenerateRoute: (settings) {
         final page = switch (settings.name) {
-          RoutesName.simulationQuestion => const InterviewQuestionScreen(),
+          RoutesName.simulationQuestion => BlocProvider(
+              create: (_) => idleSpeechCubit(),
+              child: const InterviewQuestionScreen(),
+            ),
           RoutesName.simulationEvaluation => const InterviewEvaluationScreen(),
           RoutesName.simulationResult => const InterviewResultScreen(),
           _ => const SizedBox.shrink(),
@@ -235,9 +225,7 @@ void main() {
           settings: settings,
           builder: (_) => BlocProvider.value(
             value: cubit,
-            child: settings.name == RoutesName.simulationResult
-                ? BlocProvider.value(value: homeCubit, child: page)
-                : page,
+            child: page,
           ),
         );
       },
@@ -247,7 +235,10 @@ void main() {
   Widget hosted(Widget child) {
     return BlocProvider.value(
       value: cubit,
-      child: BlocProvider.value(value: homeCubit, child: child),
+      child: BlocProvider(
+        create: (_) => idleSpeechCubit(),
+        child: child,
+      ),
     );
   }
 

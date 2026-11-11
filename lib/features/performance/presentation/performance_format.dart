@@ -18,6 +18,14 @@ String recentInterviewTitle(String? jobField, String mockTitle) {
   return trimmed;
 }
 
+String recentInterviewShareLabel(RecentInterview interview, String mockTitle) {
+  final title = recentInterviewTitle(interview.jobField, mockTitle);
+  if (interview.score == null) return title;
+  final score = performanceScoreText(interview.score, '');
+  if (score.isEmpty) return title;
+  return '$title · $score';
+}
+
 String? performanceStatusLabel(
   PerformanceStatus? status,
   String Function(String key) translate,

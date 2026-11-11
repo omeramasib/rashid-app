@@ -33,6 +33,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
 			<string>com.rashedapp.oauth</string>
+			<!-- Also receives the publishing return rashedapp://linkedin/oauth -->
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>rashedapp</string>
@@ -43,6 +44,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Rashed uses your microphone to convert spoken interview answers into text.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Rashed uses speech recognition to transcribe your interview answers.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

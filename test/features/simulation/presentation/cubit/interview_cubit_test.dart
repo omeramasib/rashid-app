@@ -239,8 +239,9 @@ void main() {
     act: startJob,
     expect: () => [
       checked,
-      checked.copyWith(phase: InterviewPhase.starting),
+      checked.copyWith(language: 'English', phase: InterviewPhase.starting),
       checked.copyWith(
+        language: 'English',
         phase: InterviewPhase.inProgress,
         simulationId: 'sim-1',
         questions: started.questions,
@@ -277,9 +278,11 @@ void main() {
     ),
     expect: () => [
       checked.copyWith(cvId: 'cv-1'),
-      checked.copyWith(cvId: 'cv-1', phase: InterviewPhase.starting),
+      checked.copyWith(
+          cvId: 'cv-1', language: 'Arabic', phase: InterviewPhase.starting),
       checked.copyWith(
         cvId: 'cv-1',
+        language: 'Arabic',
         phase: InterviewPhase.inProgress,
         simulationId: 'sim-1',
         questions: started.questions,
@@ -341,8 +344,9 @@ void main() {
     },
     expect: () => [
       checked,
-      checked.copyWith(phase: InterviewPhase.starting),
+      checked.copyWith(language: 'English', phase: InterviewPhase.starting),
       checked.copyWith(
+        language: 'English',
         phase: InterviewPhase.startFailed,
         failedSimulationId: 'sim-x',
         error: const UpstreamFailure(
@@ -350,10 +354,12 @@ void main() {
         ),
       ),
       checked.copyWith(
+        language: 'English',
         phase: InterviewPhase.starting,
         failedSimulationId: 'sim-x',
       ),
       checked.copyWith(
+        language: 'English',
         phase: InterviewPhase.inProgress,
         simulationId: 'sim-1',
         questions: started.questions,
@@ -383,8 +389,9 @@ void main() {
     verify: (_) => verifyNever(() => retry(any())),
     expect: () => [
       checked,
-      checked.copyWith(phase: InterviewPhase.starting),
+      checked.copyWith(language: 'English', phase: InterviewPhase.starting),
       checked.copyWith(
+        language: 'English',
         phase: InterviewPhase.startFailed,
         error: const NetworkFailure('No internet connection'),
       ),
@@ -602,11 +609,13 @@ void main() {
       checked.copyWith(
         cvId: 'cv-1',
         cvJobTitles: const ['Flutter Developer'],
+        language: 'English',
         phase: InterviewPhase.starting,
       ),
       checked.copyWith(
         cvId: 'cv-1',
         cvJobTitles: const ['Flutter Developer'],
+        language: 'English',
         phase: InterviewPhase.inProgress,
         simulationId: 'sim-1',
         questions: started.questions,
@@ -693,9 +702,11 @@ void main() {
     act: (cubit) => startJob(cubit),
     expect: () => [
       checked.copyWith(cvId: 'cv-1'),
-      checked.copyWith(cvId: 'cv-1', phase: InterviewPhase.starting),
+      checked.copyWith(
+          cvId: 'cv-1', language: 'English', phase: InterviewPhase.starting),
       checked.copyWith(
         cvId: 'cv-1',
+        language: 'English',
         phase: InterviewPhase.inProgress,
         simulationId: 'sim-1',
         questions: started.questions,
@@ -755,10 +766,12 @@ void main() {
       ),
       checked.copyWith(
         cvLoadFailure: const NetworkFailure('No internet connection'),
+        language: 'English',
         phase: InterviewPhase.starting,
       ),
       checked.copyWith(
         cvLoadFailure: const NetworkFailure('No internet connection'),
+        language: 'English',
         phase: InterviewPhase.inProgress,
         simulationId: 'sim-1',
         questions: started.questions,

@@ -22,6 +22,7 @@ class RoutesName {
   static const String simulationQuestion = "/simulation/question";
   static const String simulationEvaluation = "/simulation/evaluation";
   static const String simulationResult = "/simulation/result";
+  static const String linkedinShare = "/linkedin/share";
 
   // Other
   static const String items = "/items";
