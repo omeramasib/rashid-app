@@ -23,6 +23,7 @@ import '../features/profile/presentation/screens/linkedin_import_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/simulation/domain/interview_options.dart';
 import '../features/simulation/presentation/cubit/interview_cubit.dart';
+import '../features/simulation/presentation/cubit/speech_input_cubit.dart';
 import '../features/simulation/presentation/screens/interview_evaluation_screen.dart';
 import '../features/simulation/presentation/screens/interview_question_screen.dart';
 import '../features/simulation/presentation/screens/interview_result_screen.dart';
@@ -149,7 +150,10 @@ class Routes {
         {
           return _interviewRoute(
             routeSettings,
-            const InterviewQuestionScreen(),
+            BlocProvider(
+              create: (_) => di.sl<SpeechInputCubit>(),
+              child: const InterviewQuestionScreen(),
+            ),
           );
         }
 

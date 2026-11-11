@@ -10,6 +10,9 @@ import '../ads/app_foreground.dart';
 import '../ads/interview_ad_gate.dart';
 import '../ads/interstitial_ad_service.dart';
 import '../localization/localization_bloc.dart';
+import '../speech/microphone_permission_service.dart';
+import '../speech/speech_recognition_service.dart';
+import '../speech/speech_to_text_service.dart';
 import '../network/dio_client.dart';
 import '../auth/clerk_auth_service.dart';
 import '../auth/clerk_config.dart';
@@ -68,6 +71,7 @@ import '../../features/simulation/domain/usecases/start_interview_by_job_usecase
 import '../../features/simulation/domain/usecases/submit_answer_usecase.dart';
 import '../../features/simulation/presentation/cubit/interview_cubit.dart';
 import '../../features/simulation/presentation/cubit/interview_entry_cubit.dart';
+import '../../features/simulation/presentation/cubit/speech_input_cubit.dart';
 import '../../features/performance/data/datasources/performance_remote_datasource.dart';
 import '../../features/performance/data/repositories/performance_repository_impl.dart';
 import '../../features/performance/domain/repositories/performance_repository.dart';
@@ -241,6 +245,14 @@ Future<void> init() async {
     ),
   );
 
+  sl.registerFactory(
+    () => SpeechInputCubit(
+      speech: sl(),
+      permissions: sl(),
+      foreground: sl(),
+    ),
+  );
+
   // Usecases
   sl.registerLazySingleton(() => StartInterviewByJobUseCase(sl()));
   sl.registerLazySingleton(() => StartInterviewByJobDescriptionUseCase(sl()));
@@ -285,6 +297,10 @@ Future<void> init() async {
   final adMobConfig = AdMobConfig.fromEnvironment();
   sl.registerSingleton<AdMobConfig>(adMobConfig);
   sl.registerLazySingleton<AppForegroundSignal>(WidgetsAppForeground.new);
+  sl.registerLazySingleton<SpeechRecognitionService>(SpeechToTextService.new);
+  sl.registerLazySingleton<MicrophonePermissionService>(
+    PermissionHandlerMicrophoneService.new,
+  );
   sl.registerLazySingleton<AdConsentService>(
     () => adMobConfig.requestsAds
         ? UmpAdConsentService()

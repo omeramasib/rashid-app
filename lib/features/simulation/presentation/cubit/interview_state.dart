@@ -29,6 +29,9 @@ class InterviewState extends Equatable {
   final Failure? error;
   final List<InterviewSimulationHistory>? history;
 
+  /// Interview language sent to the start endpoint (`English` or `Arabic`).
+  final String? language;
+
   const InterviewState({
     this.phase = InterviewPhase.setup,
     this.cvChecked = false,
@@ -47,6 +50,7 @@ class InterviewState extends Equatable {
     this.reportFailure,
     this.error,
     this.history,
+    this.language,
   });
 
   InterviewQuestion? get currentQuestion {
@@ -56,6 +60,13 @@ class InterviewState extends Equatable {
 
   bool get isLastQuestion =>
       questions.isNotEmpty && currentIndex >= questions.length - 1;
+
+  /// `ar` or `en` for the interview language, or null when unknown.
+  String? get languageCode => switch (language) {
+        'Arabic' => 'ar',
+        'English' => 'en',
+        _ => null,
+      };
 
   bool get requestInFlight =>
       phase == InterviewPhase.starting ||
@@ -88,6 +99,7 @@ class InterviewState extends Equatable {
     Failure? error,
     bool clearError = false,
     List<InterviewSimulationHistory>? history,
+    String? language,
   }) {
     return InterviewState(
       phase: phase ?? this.phase,
@@ -111,6 +123,7 @@ class InterviewState extends Equatable {
           clearReportFailure ? null : (reportFailure ?? this.reportFailure),
       error: clearError ? null : (error ?? this.error),
       history: history ?? this.history,
+      language: language ?? this.language,
     );
   }
 
@@ -133,5 +146,6 @@ class InterviewState extends Equatable {
         reportFailure,
         error,
         history,
+        language,
       ];
 }

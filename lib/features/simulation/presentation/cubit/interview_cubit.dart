@@ -175,6 +175,7 @@ class InterviewCubit extends Cubit<InterviewState> {
       if (isClosed || _abandonStart) return;
       emit(state.copyWith(
         phase: InterviewPhase.starting,
+        language: language,
         clearError: true,
       ));
       final result = mode == InterviewStartMode.byJob
