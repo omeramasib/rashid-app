@@ -65,7 +65,19 @@ class RequestCancelledFailure extends Failure {
 }
 
 class ConflictFailure extends Failure {
-  const ConflictFailure(super.message);
+  final String? code;
+  final String? postUrl;
+  final String? shareId;
+
+  const ConflictFailure(
+    super.message, {
+    this.code,
+    this.postUrl,
+    this.shareId,
+  });
+
+  @override
+  List<Object> get props => [message, code ?? '', postUrl ?? '', shareId ?? ''];
 }
 
 class GoneFailure extends Failure {

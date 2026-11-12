@@ -58,7 +58,11 @@ class RequestCancelledException extends AppException {
 }
 
 class ConflictException extends AppException {
-  ConflictException(super.message);
+  final String? code;
+  final String? postUrl;
+  final String? shareId;
+
+  ConflictException(super.message, {this.code, this.postUrl, this.shareId});
 }
 
 class GoneException extends AppException {

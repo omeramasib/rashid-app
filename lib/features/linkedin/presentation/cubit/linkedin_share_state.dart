@@ -12,6 +12,8 @@ enum LinkedInSharePhase {
   loadingPreview,
   previewReady,
   publishing,
+  markingDeleted,
+  alreadyShared,
   published,
   error,
 }
@@ -28,8 +30,18 @@ enum LinkedInShareNotice {
   invalidState,
   missingPermission,
   accountConflict,
+  alreadySharedDifferent,
+  confirmationRequired,
+  shareNotFound,
+  shareNotDeletable,
+  otherActivePosts,
+  readyToRepublish,
+  network,
   generic,
 }
+
+const linkedInDifferentContentCode = 'ALREADY_PUBLISHED_DIFFERENT_CONTENT';
+const linkedInShareNotDeletableCode = 'SHARE_NOT_EXTERNALLY_DELETABLE';
 
 class LinkedInShareState extends Equatable {
   final LinkedInSharePhase phase;
@@ -38,6 +50,8 @@ class LinkedInShareState extends Equatable {
   final LinkedInConnectionStatus? connection;
   final LinkedInSharePreview? preview;
   final String? postUrl;
+  final String? activeShareId;
+  final bool republishBlocked;
   final LinkedInShareNotice notice;
   final int returnGeneration;
 
@@ -48,6 +62,8 @@ class LinkedInShareState extends Equatable {
     this.connection,
     this.preview,
     this.postUrl,
+    this.activeShareId,
+    this.republishBlocked = false,
     this.notice = LinkedInShareNotice.none,
     this.returnGeneration = 0,
   });
@@ -56,6 +72,7 @@ class LinkedInShareState extends Equatable {
       connection != null &&
       (connection!.connected || connection!.needsReconnect) &&
       phase != LinkedInSharePhase.publishing &&
+      phase != LinkedInSharePhase.markingDeleted &&
       phase != LinkedInSharePhase.startingOAuth;
 
   @override
@@ -66,6 +83,8 @@ class LinkedInShareState extends Equatable {
         connection,
         preview,
         postUrl,
+        activeShareId,
+        republishBlocked,
         notice,
         returnGeneration,
       ];

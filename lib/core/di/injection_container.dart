@@ -41,6 +41,7 @@ import '../../features/linkedin/data/linkedin_pending_share_store.dart';
 import '../../features/linkedin/data/repositories/linkedin_repository_impl.dart';
 import '../../features/linkedin/domain/repositories/linkedin_repository.dart';
 import '../../features/linkedin/domain/usecases/disconnect_linkedin_usecase.dart';
+import '../../features/linkedin/domain/usecases/mark_linkedin_share_deleted_usecase.dart';
 import '../../features/linkedin/domain/usecases/get_linkedin_status_usecase.dart';
 import '../../features/linkedin/domain/usecases/preview_linkedin_share_usecase.dart';
 import '../../features/linkedin/domain/usecases/publish_linkedin_share_usecase.dart';
@@ -157,6 +158,7 @@ Future<void> init() async {
       startOAuth: sl(),
       previewShare: sl(),
       publishShare: sl(),
+      markDeleted: sl(),
       disconnectLinkedIn: sl(),
       pendingShare: sl(),
       launcher: sl(),
@@ -174,6 +176,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => StartLinkedInOAuthUseCase(sl()));
   sl.registerLazySingleton(() => PreviewLinkedInShareUseCase(sl()));
   sl.registerLazySingleton(() => PublishLinkedInShareUseCase(sl()));
+  sl.registerLazySingleton(() => MarkLinkedInShareDeletedUseCase(sl()));
   sl.registerLazySingleton(() => DisconnectLinkedInUseCase(sl()));
   sl.registerLazySingleton<LinkedInRepository>(
     () => LinkedInRepositoryImpl(remoteDataSource: sl()),

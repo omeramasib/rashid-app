@@ -26,6 +26,9 @@ class ApiEndpoints {
   static const String linkedInPublish = '/api/v1/linkedin/publish';
   static const String linkedInDisconnect = '/api/v1/linkedin/disconnect';
 
+  static String linkedInMarkDeleted(String shareId) =>
+      '/api/v1/linkedin/shares/${Uri.encodeComponent(shareId)}/mark-deleted';
+
   // CV
   static const String cvUpload = '/api/v1/cv/upload';
   static const String cvAnalyze = '/api/v1/cv/analyze';

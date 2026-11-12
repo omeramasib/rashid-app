@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../Presentation/utils/images.dart';
 import '../../../../app/routes_name.dart';
@@ -13,13 +12,15 @@ import '../../../home/presentation/screens/home_screen.dart';
 import '../../../simulation/presentation/widgets/interview_widgets.dart';
 import '../cubit/linkedin_share_cubit.dart';
 import '../cubit/linkedin_share_state.dart';
+import '../linkedin_post_link.dart';
 import '../linkedin_share_request.dart';
 import '../linkedin_share_text.dart';
 
 class LinkedInShareScreen extends HookWidget {
-  const LinkedInShareScreen({super.key, this.cubit});
+  const LinkedInShareScreen({super.key, this.cubit, this.openPost});
 
   final LinkedInShareCubit? cubit;
+  final Future<bool> Function(String? url)? openPost;
 
   @override
   Widget build(BuildContext context) {
@@ -48,14 +49,18 @@ class LinkedInShareScreen extends HookWidget {
             (route) => false,
           );
         },
-        child: const _LinkedInShareView(),
+        child: _LinkedInShareView(
+          openPost: openPost ?? openVerifiedLinkedInPost,
+        ),
       ),
     );
   }
 }
 
 class _LinkedInShareView extends StatelessWidget {
-  const _LinkedInShareView();
+  const _LinkedInShareView({required this.openPost});
+
+  final Future<bool> Function(String? url) openPost;
 
   @override
   Widget build(BuildContext context) {
@@ -128,11 +133,14 @@ class _LinkedInShareView extends StatelessWidget {
       case LinkedInSharePhase.startingOAuth:
       case LinkedInSharePhase.loadingPreview:
       case LinkedInSharePhase.publishing:
+      case LinkedInSharePhase.markingDeleted:
         return _busy(
           context,
           state.phase == LinkedInSharePhase.publishing
               ? AppLocalizations.tr(context, 'linkedin_publishing')
-              : null,
+              : state.phase == LinkedInSharePhase.markingDeleted
+                  ? AppLocalizations.tr(context, 'linkedin_marking_deleted')
+                  : null,
         );
       case LinkedInSharePhase.waitingForOAuthReturn:
         return _message(
@@ -143,6 +151,8 @@ class _LinkedInShareView extends StatelessWidget {
         return _connect(context, state);
       case LinkedInSharePhase.previewReady:
         return _preview(context, state);
+      case LinkedInSharePhase.alreadyShared:
+        return _alreadyShared(context, state);
       case LinkedInSharePhase.published:
         return _published(context, state);
       case LinkedInSharePhase.error:
@@ -215,6 +225,18 @@ class _LinkedInShareView extends StatelessWidget {
               ),
             ),
           ),
+        if (state.notice == LinkedInShareNotice.readyToRepublish) ...[
+          Text(
+            AppLocalizations.tr(context, 'linkedin_ready_to_republish'),
+            key: const Key('linkedin_ready_to_republish'),
+            textAlign: TextAlign.center,
+            style: AppTypography.bold(
+              fontSize: 16,
+              color: AppColors.fontColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         Text(
           AppLocalizations.tr(context, 'linkedin_preview'),
           style: AppTypography.bold(fontSize: 14, color: AppColors.fontColor),
@@ -259,6 +281,98 @@ class _LinkedInShareView extends StatelessWidget {
     );
   }
 
+  Widget _alreadyShared(BuildContext context, LinkedInShareState state) {
+    final different =
+        state.notice == LinkedInShareNotice.alreadySharedDifferent;
+    final blocked = state.notice == LinkedInShareNotice.otherActivePosts ||
+        state.republishBlocked;
+    final titleKey = state.notice == LinkedInShareNotice.otherActivePosts
+        ? 'linkedin_other_active_posts'
+        : different
+            ? 'linkedin_already_shared_different'
+            : 'linkedin_already_shared';
+    final postUrl = state.postUrl;
+    final shareId = state.activeShareId;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          AppLocalizations.tr(context, titleKey),
+          key: Key(
+            state.notice == LinkedInShareNotice.otherActivePosts
+                ? 'linkedin_other_active_posts'
+                : different
+                    ? 'linkedin_already_different'
+                    : 'linkedin_already_shared_label',
+          ),
+          textAlign: TextAlign.center,
+          style: AppTypography.bold(fontSize: 16, color: AppColors.fontColor),
+        ),
+        if (blocked &&
+            state.notice != LinkedInShareNotice.otherActivePosts) ...[
+          const SizedBox(height: 12),
+          Text(
+            AppLocalizations.tr(context, 'linkedin_other_active_posts'),
+            key: const Key('linkedin_other_active_posts'),
+            textAlign: TextAlign.center,
+            style: AppTypography.regular(
+              fontSize: 14,
+              color: AppColors.fontColor,
+            ),
+          ),
+        ],
+        if (state.preview?.text != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.inputBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: SelectableText(
+              state.preview!.text,
+              key: const Key('linkedin_preview_text'),
+              style: AppTypography.regular(
+                fontSize: 14,
+                color: AppColors.fontColor,
+              ),
+            ),
+          ),
+        ],
+        if (postUrl != null) ...[
+          const SizedBox(height: 16),
+          InterviewActionButton(
+            key: const Key('linkedin_view_published_post'),
+            label: AppLocalizations.tr(context, 'linkedin_view_published_post'),
+            onPressed: () => openPost(postUrl),
+          ),
+        ],
+        if (shareId != null && shareId.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          InterviewActionButton(
+            key: const Key('linkedin_mark_deleted'),
+            label: AppLocalizations.tr(context, 'linkedin_mark_deleted'),
+            primary: false,
+            onPressed: () => _confirmDeleted(context),
+          ),
+        ],
+        const SizedBox(height: 8),
+        InterviewActionButton(
+          key: const Key('linkedin_back_performance'),
+          label: AppLocalizations.tr(context, 'linkedin_back_performance'),
+          primary: false,
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            RoutesName.home,
+            (route) => false,
+            arguments: HomeScreen.performanceTab,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _published(BuildContext context, LinkedInShareState state) {
     final postUrl = state.postUrl;
     return Column(
@@ -274,10 +388,7 @@ class _LinkedInShareView extends StatelessWidget {
           InterviewActionButton(
             key: const Key('linkedin_open_post'),
             label: AppLocalizations.tr(context, 'linkedin_open_post'),
-            onPressed: () => launchUrl(
-              Uri.parse(postUrl),
-              mode: LaunchMode.externalApplication,
-            ),
+            onPressed: () => openPost(postUrl),
           ),
         ],
         const SizedBox(height: 8),
@@ -324,6 +435,49 @@ class _LinkedInShareView extends StatelessWidget {
         _cancel(context),
       ],
     );
+  }
+
+  Future<void> _confirmDeleted(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            AppLocalizations.tr(
+              dialogContext,
+              'linkedin_delete_confirm_title',
+            ),
+            key: const Key('linkedin_delete_confirm_title'),
+          ),
+          content: Text(
+            AppLocalizations.tr(
+              dialogContext,
+              'linkedin_delete_confirm_body',
+            ),
+            key: const Key('linkedin_delete_confirm_body'),
+          ),
+          actions: [
+            TextButton(
+              key: const Key('linkedin_delete_cancel'),
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(
+                AppLocalizations.tr(dialogContext, 'linkedin_cancel'),
+              ),
+            ),
+            TextButton(
+              key: const Key('linkedin_delete_confirm'),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(
+                AppLocalizations.tr(dialogContext, 'linkedin_confirm'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == true && context.mounted) {
+      context.read<LinkedInShareCubit>().markDeletedOnLinkedIn();
+    }
   }
 
   Widget _cancel(BuildContext context) {

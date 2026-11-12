@@ -11,12 +11,14 @@ import 'package:rashed_app/features/linkedin/data/linkedin_authorization_launche
 import 'package:rashed_app/features/linkedin/data/linkedin_pending_share_store.dart';
 import 'package:rashed_app/features/linkedin/domain/entities/linkedin_connection_status.dart';
 import 'package:rashed_app/features/linkedin/domain/entities/linkedin_oauth_start.dart';
+import 'package:rashed_app/features/linkedin/domain/entities/linkedin_mark_deleted_result.dart';
 import 'package:rashed_app/features/linkedin/domain/entities/linkedin_publish_result.dart';
 import 'package:rashed_app/features/linkedin/domain/entities/linkedin_share_preview.dart';
 import 'package:rashed_app/features/linkedin/domain/linkedin_app_return_url.dart';
 import 'package:rashed_app/features/linkedin/domain/linkedin_oauth_return_link.dart';
 import 'package:rashed_app/features/linkedin/domain/usecases/disconnect_linkedin_usecase.dart';
 import 'package:rashed_app/features/linkedin/domain/usecases/get_linkedin_status_usecase.dart';
+import 'package:rashed_app/features/linkedin/domain/usecases/mark_linkedin_share_deleted_usecase.dart';
 import 'package:rashed_app/features/linkedin/domain/usecases/preview_linkedin_share_usecase.dart';
 import 'package:rashed_app/features/linkedin/domain/usecases/publish_linkedin_share_usecase.dart';
 import 'package:rashed_app/features/linkedin/domain/usecases/start_linkedin_oauth_usecase.dart';
@@ -30,6 +32,8 @@ class MockStart extends Mock implements StartLinkedInOAuthUseCase {}
 class MockPreview extends Mock implements PreviewLinkedInShareUseCase {}
 
 class MockPublish extends Mock implements PublishLinkedInShareUseCase {}
+
+class MockMarkDeleted extends Mock implements MarkLinkedInShareDeletedUseCase {}
 
 class MockDisconnect extends Mock implements DisconnectLinkedInUseCase {}
 
@@ -107,6 +111,7 @@ void main() {
   late MockStart start;
   late MockPreview previewShare;
   late MockPublish publish;
+  late MockMarkDeleted markDeleted;
   late MockDisconnect disconnect;
   late MemoryPendingShare pending;
   late FakeLauncher launcher;
@@ -120,6 +125,9 @@ void main() {
       simulationId: 'sim',
       contentSha256: 'hash',
     ));
+    registerFallbackValue(
+      const MarkLinkedInShareDeletedParams(shareId: 'share'),
+    );
   });
 
   setUp(() {
@@ -127,6 +135,7 @@ void main() {
     start = MockStart();
     previewShare = MockPreview();
     publish = MockPublish();
+    markDeleted = MockMarkDeleted();
     disconnect = MockDisconnect();
     pending = MemoryPendingShare();
     launcher = FakeLauncher();
@@ -139,6 +148,7 @@ void main() {
       startOAuth: start,
       previewShare: previewShare,
       publishShare: publish,
+      markDeleted: markDeleted,
       disconnectLinkedIn: disconnect,
       pendingShare: pending,
       launcher: launcher,
@@ -277,7 +287,7 @@ void main() {
           .thenAnswer((_) async => const Right(preview));
       when(() => publish(any())).thenAnswer(
         (_) async => const Right(LinkedInPublishResult(
-          postUrl: 'https://www.linkedin.com/feed/update/1',
+          postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
         )),
       );
     },
@@ -322,7 +332,7 @@ void main() {
         simulationId: 'sim-1',
         connection: active,
         preview: preview,
-        postUrl: 'https://www.linkedin.com/feed/update/1',
+        postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
       ),
     ],
   );
@@ -417,6 +427,379 @@ void main() {
         simulationId: 'sim-1',
         connection: active,
         notice: LinkedInShareNotice.reconnect,
+      ),
+    ],
+  );
+
+  blocTest<LinkedInShareCubit, LinkedInShareState>(
+    'an identical existing post is already shared and is not published again',
+    build: build,
+    setUp: () {
+      stubStatus(active);
+      when(() => previewShare(any())).thenAnswer(
+        (_) async => const Right(LinkedInSharePreview(
+          previewId: 'preview-1',
+          simulationId: 'sim-1',
+          text: 'Server-generated post',
+          contentSha256: 'hash-1',
+          existingContentMatches: true,
+          existingPostUrl:
+              'https://www.linkedin.com/feed/update/urn:li:share:9/',
+        )),
+      );
+    },
+    act: (cubit) async {
+      await cubit.begin(simulationId: 'sim-1');
+      await cubit.publish();
+    },
+    verify: (_) => verifyNever(() => publish(any())),
+    expect: () => const [
+      LinkedInShareState(
+        phase: LinkedInSharePhase.checkingConnection,
+        simulationId: 'sim-1',
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.loadingPreview,
+        simulationId: 'sim-1',
+        connection: active,
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.alreadyShared,
+        simulationId: 'sim-1',
+        connection: active,
+        preview: LinkedInSharePreview(
+          previewId: 'preview-1',
+          simulationId: 'sim-1',
+          text: 'Server-generated post',
+          contentSha256: 'hash-1',
+          existingContentMatches: true,
+          existingPostUrl:
+              'https://www.linkedin.com/feed/update/urn:li:share:9/',
+        ),
+        postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
+      ),
+    ],
+  );
+
+  blocTest<LinkedInShareCubit, LinkedInShareState>(
+    'a fresh preview replaces a stale already-shared state',
+    build: build,
+    setUp: () {
+      stubStatus(active);
+      var calls = 0;
+      when(() => previewShare(any())).thenAnswer((_) async {
+        calls += 1;
+        if (calls == 1) {
+          return const Right(LinkedInSharePreview(
+            previewId: 'preview-old',
+            simulationId: 'sim-1',
+            text: 'Previously published post',
+            contentSha256: 'hash-old',
+            existingContentMatches: true,
+            existingPostUrl:
+                'https://www.linkedin.com/feed/update/urn:li:share:9/',
+          ));
+        }
+        return const Right(preview);
+      });
+      when(() => publish(any())).thenAnswer(
+        (_) async => const Right(LinkedInPublishResult(
+          postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:10/',
+        )),
+      );
+    },
+    act: (cubit) async {
+      await cubit.begin(simulationId: 'sim-1');
+      await cubit.begin(simulationId: 'sim-1');
+      await cubit.publish();
+      await cubit.publish();
+    },
+    verify: (_) {
+      verify(() => previewShare(any())).called(2);
+      verify(
+        () => publish(const PublishLinkedInParams(
+          previewId: 'preview-1',
+          simulationId: 'sim-1',
+          contentSha256: 'hash-1',
+        )),
+      ).called(1);
+    },
+    expect: () => const [
+      LinkedInShareState(
+        phase: LinkedInSharePhase.checkingConnection,
+        simulationId: 'sim-1',
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.loadingPreview,
+        simulationId: 'sim-1',
+        connection: active,
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.alreadyShared,
+        simulationId: 'sim-1',
+        connection: active,
+        preview: LinkedInSharePreview(
+          previewId: 'preview-old',
+          simulationId: 'sim-1',
+          text: 'Previously published post',
+          contentSha256: 'hash-old',
+          existingContentMatches: true,
+          existingPostUrl:
+              'https://www.linkedin.com/feed/update/urn:li:share:9/',
+        ),
+        postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.checkingConnection,
+        simulationId: 'sim-1',
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.loadingPreview,
+        simulationId: 'sim-1',
+        connection: active,
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.previewReady,
+        simulationId: 'sim-1',
+        connection: active,
+        preview: preview,
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.publishing,
+        simulationId: 'sim-1',
+        connection: active,
+        preview: preview,
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.published,
+        simulationId: 'sim-1',
+        connection: active,
+        preview: preview,
+        postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:10/',
+      ),
+    ],
+  );
+
+  blocTest<LinkedInShareCubit, LinkedInShareState>(
+    'a later preview that still reports a post stays already shared',
+    build: build,
+    setUp: () {
+      stubStatus(active);
+      var calls = 0;
+      when(() => previewShare(any())).thenAnswer((_) async {
+        calls += 1;
+        return Right(LinkedInSharePreview(
+          previewId: 'preview-$calls',
+          simulationId: 'sim-1',
+          text: 'Server-generated post',
+          contentSha256: 'hash-1',
+          existingContentMatches: true,
+          existingPostUrl:
+              'https://www.linkedin.com/feed/update/urn:li:share:9/',
+        ));
+      });
+    },
+    act: (cubit) async {
+      await cubit.begin(simulationId: 'sim-1');
+      await cubit.publish();
+      await cubit.begin(simulationId: 'sim-1');
+      await cubit.publish();
+    },
+    verify: (_) {
+      verify(() => previewShare(any())).called(2);
+      verifyNever(() => publish(any()));
+    },
+    expect: () => const [
+      LinkedInShareState(
+        phase: LinkedInSharePhase.checkingConnection,
+        simulationId: 'sim-1',
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.loadingPreview,
+        simulationId: 'sim-1',
+        connection: active,
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.alreadyShared,
+        simulationId: 'sim-1',
+        connection: active,
+        preview: LinkedInSharePreview(
+          previewId: 'preview-1',
+          simulationId: 'sim-1',
+          text: 'Server-generated post',
+          contentSha256: 'hash-1',
+          existingContentMatches: true,
+          existingPostUrl:
+              'https://www.linkedin.com/feed/update/urn:li:share:9/',
+        ),
+        postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.checkingConnection,
+        simulationId: 'sim-1',
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.loadingPreview,
+        simulationId: 'sim-1',
+        connection: active,
+      ),
+      LinkedInShareState(
+        phase: LinkedInSharePhase.alreadyShared,
+        simulationId: 'sim-1',
+        connection: active,
+        preview: LinkedInSharePreview(
+          previewId: 'preview-2',
+          simulationId: 'sim-1',
+          text: 'Server-generated post',
+          contentSha256: 'hash-1',
+          existingContentMatches: true,
+          existingPostUrl:
+              'https://www.linkedin.com/feed/update/urn:li:share:9/',
+        ),
+        postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
+      ),
+    ],
+  );
+
+  blocTest<LinkedInShareCubit, LinkedInShareState>(
+    'a different existing post keeps the preview and does not publish',
+    build: build,
+    setUp: () {
+      stubStatus(active);
+      when(() => previewShare(any())).thenAnswer(
+        (_) async => const Right(LinkedInSharePreview(
+          previewId: 'preview-2',
+          simulationId: 'sim-1',
+          text: 'Server-generated post',
+          contentSha256: 'hash-2',
+          existingContentMatches: false,
+          existingPostUrl:
+              'https://www.linkedin.com/feed/update/urn:li:share:9/',
+        )),
+      );
+    },
+    act: (cubit) => cubit.begin(simulationId: 'sim-1'),
+    verify: (_) => verifyNever(() => publish(any())),
+    skip: 2,
+    expect: () => const [
+      LinkedInShareState(
+        phase: LinkedInSharePhase.alreadyShared,
+        simulationId: 'sim-1',
+        connection: active,
+        notice: LinkedInShareNotice.alreadySharedDifferent,
+        preview: LinkedInSharePreview(
+          previewId: 'preview-2',
+          simulationId: 'sim-1',
+          text: 'Server-generated post',
+          contentSha256: 'hash-2',
+          existingContentMatches: false,
+          existingPostUrl:
+              'https://www.linkedin.com/feed/update/urn:li:share:9/',
+        ),
+        postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
+      ),
+    ],
+  );
+
+  blocTest<LinkedInShareCubit, LinkedInShareState>(
+    'an activity url is not treated as a viewable post',
+    build: build,
+    setUp: () {
+      stubStatus(active);
+      when(() => previewShare(any())).thenAnswer(
+        (_) async => const Right(LinkedInSharePreview(
+          previewId: 'preview-2',
+          simulationId: 'sim-1',
+          text: 'Server-generated post',
+          contentSha256: 'hash-2',
+          existingContentMatches: false,
+          existingPostUrl:
+              'https://www.linkedin.com/feed/update/urn:li:activity:9/',
+        )),
+      );
+    },
+    act: (cubit) => cubit.begin(simulationId: 'sim-1'),
+    verify: (_) => verifyNever(() => publish(any())),
+    skip: 2,
+    expect: () => const [
+      LinkedInShareState(
+        phase: LinkedInSharePhase.alreadyShared,
+        simulationId: 'sim-1',
+        connection: active,
+        notice: LinkedInShareNotice.alreadySharedDifferent,
+        preview: LinkedInSharePreview(
+          previewId: 'preview-2',
+          simulationId: 'sim-1',
+          text: 'Server-generated post',
+          contentSha256: 'hash-2',
+          existingContentMatches: false,
+          existingPostUrl:
+              'https://www.linkedin.com/feed/update/urn:li:activity:9/',
+        ),
+      ),
+    ],
+  );
+
+  blocTest<LinkedInShareCubit, LinkedInShareState>(
+    'publish 409 for different content is not a new success',
+    build: build,
+    setUp: () {
+      stubStatus(active);
+      when(() => previewShare(any()))
+          .thenAnswer((_) async => const Right(preview));
+      when(() => publish(any())).thenAnswer(
+        (_) async => const Left(ConflictFailure(
+          'different',
+          code: linkedInDifferentContentCode,
+          postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
+        )),
+      );
+    },
+    act: (cubit) async {
+      await cubit.begin(simulationId: 'sim-1');
+      await cubit.publish();
+      await cubit.publish();
+    },
+    verify: (_) => verify(() => publish(any())).called(1),
+    skip: 4,
+    expect: () => const [
+      LinkedInShareState(
+        phase: LinkedInSharePhase.alreadyShared,
+        simulationId: 'sim-1',
+        connection: active,
+        preview: preview,
+        notice: LinkedInShareNotice.alreadySharedDifferent,
+        postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
+      ),
+    ],
+  );
+
+  blocTest<LinkedInShareCubit, LinkedInShareState>(
+    'an already published response is not shown as a new publish',
+    build: build,
+    setUp: () {
+      stubStatus(active);
+      when(() => previewShare(any()))
+          .thenAnswer((_) async => const Right(preview));
+      when(() => publish(any())).thenAnswer(
+        (_) async => const Right(LinkedInPublishResult(
+          postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
+          alreadyPublished: true,
+        )),
+      );
+    },
+    act: (cubit) async {
+      await cubit.begin(simulationId: 'sim-1');
+      await cubit.publish();
+    },
+    skip: 4,
+    expect: () => const [
+      LinkedInShareState(
+        phase: LinkedInSharePhase.alreadyShared,
+        simulationId: 'sim-1',
+        connection: active,
+        preview: preview,
+        postUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
       ),
     ],
   );
@@ -672,6 +1055,236 @@ void main() {
       ),
     ],
   );
+
+  const publishedShare = LinkedInSharePreview(
+    previewId: 'preview-old',
+    simulationId: 'sim-1',
+    text: 'Previously published post',
+    contentSha256: 'hash-old',
+    existingContentMatches: true,
+    existingPostUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
+    existingShareId: 'share-old',
+  );
+  const freshPreview = LinkedInSharePreview(
+    previewId: 'preview-new',
+    simulationId: 'sim-1',
+    text: 'Fresh promotional post',
+    contentSha256: 'hash-new',
+  );
+  const deleted = LinkedInMarkDeletedResult(
+    shareId: 'share-old',
+    status: 'externally_deleted',
+    canRepublish: true,
+    remainingActivePosts: 0,
+  );
+
+  test('marking a post deleted loads a fresh preview and does not publish',
+      () async {
+    stubStatus(active);
+    var previews = 0;
+    when(() => previewShare(any())).thenAnswer((_) async {
+      previews += 1;
+      return previews == 1
+          ? const Right(publishedShare)
+          : const Right(freshPreview);
+    });
+    when(() => markDeleted(any()))
+        .thenAnswer((_) async => const Right(deleted));
+    when(() => publish(any())).thenAnswer(
+      (_) async => const Right(LinkedInPublishResult()),
+    );
+    final cubit = build();
+
+    await cubit.begin(simulationId: 'sim-1');
+    await cubit.markDeletedOnLinkedIn();
+
+    expect(cubit.state.phase, LinkedInSharePhase.previewReady);
+    expect(cubit.state.notice, LinkedInShareNotice.readyToRepublish);
+    expect(cubit.state.preview?.previewId, 'preview-new');
+    expect(cubit.state.activeShareId, isNull);
+    expect(cubit.state.postUrl, isNull);
+    verify(
+      () => markDeleted(
+        const MarkLinkedInShareDeletedParams(shareId: 'share-old'),
+      ),
+    ).called(1);
+    verifyNever(() => publish(any()));
+
+    await cubit.publish();
+    verify(
+      () => publish(const PublishLinkedInParams(
+        previewId: 'preview-new',
+        simulationId: 'sim-1',
+        contentSha256: 'hash-new',
+      )),
+    ).called(1);
+    await cubit.close();
+  });
+
+  test('can_republish false does not enable publishing', () async {
+    stubStatus(active);
+    var previews = 0;
+    when(() => previewShare(any())).thenAnswer((_) async {
+      previews += 1;
+      if (previews == 1) return const Right(publishedShare);
+      return const Right(LinkedInSharePreview(
+        previewId: 'preview-empty',
+        simulationId: 'sim-1',
+        text: 'Would look publishable',
+        contentSha256: 'hash-empty',
+      ));
+    });
+    when(() => markDeleted(any())).thenAnswer(
+      (_) async => const Right(LinkedInMarkDeletedResult(
+        shareId: 'share-old',
+        status: 'externally_deleted',
+        canRepublish: false,
+        remainingActivePosts: 1,
+      )),
+    );
+    final cubit = build();
+
+    await cubit.begin(simulationId: 'sim-1');
+    await cubit.markDeletedOnLinkedIn();
+    await cubit.publish();
+
+    expect(cubit.state.phase, LinkedInSharePhase.alreadyShared);
+    expect(cubit.state.notice, LinkedInShareNotice.otherActivePosts);
+    expect(cubit.state.republishBlocked, isTrue);
+    expect(cubit.state.activeShareId, isNull);
+    expect(cubit.state.postUrl, isNull);
+    verifyNever(() => publish(any()));
+    await cubit.close();
+  });
+
+  test('a deleted share id is not sent as the next preview id', () async {
+    stubStatus(active);
+    var previews = 0;
+    when(() => previewShare(any())).thenAnswer((_) async {
+      previews += 1;
+      if (previews == 1) return const Right(publishedShare);
+      return const Right(LinkedInSharePreview(
+        previewId: 'preview-next',
+        simulationId: 'sim-1',
+        text: 'Remaining post',
+        contentSha256: 'hash-next',
+        existingContentMatches: true,
+        existingPostUrl: 'https://www.linkedin.com/feed/update/urn:li:share:8/',
+        existingShareId: 'share-remaining',
+      ));
+    });
+    when(() => markDeleted(any())).thenAnswer(
+      (_) async => const Right(LinkedInMarkDeletedResult(
+        shareId: 'share-old',
+        status: 'externally_deleted',
+        canRepublish: false,
+        remainingActivePosts: 1,
+      )),
+    );
+    final cubit = build();
+
+    await cubit.begin(simulationId: 'sim-1');
+    await cubit.markDeletedOnLinkedIn();
+
+    expect(cubit.state.activeShareId, 'share-remaining');
+    expect(cubit.state.activeShareId, isNot('preview-next'));
+    expect(cubit.state.activeShareId, isNot('share-old'));
+    expect(cubit.state.phase, isNot(LinkedInSharePhase.previewReady));
+    verifyNever(() => publish(any()));
+    await cubit.close();
+  });
+
+  test('duplicate mark-deleted taps call the api once', () async {
+    stubStatus(active);
+    when(() => previewShare(any()))
+        .thenAnswer((_) async => const Right(publishedShare));
+    final gate = Completer<Either<Failure, LinkedInMarkDeletedResult>>();
+    when(() => markDeleted(any())).thenAnswer((_) => gate.future);
+    final cubit = build();
+    await cubit.begin(simulationId: 'sim-1');
+
+    final first = cubit.markDeletedOnLinkedIn();
+    final second = cubit.markDeletedOnLinkedIn();
+    expect(cubit.state.phase, LinkedInSharePhase.markingDeleted);
+    gate.complete(const Right(deleted));
+    when(() => previewShare(any()))
+        .thenAnswer((_) async => const Right(freshPreview));
+    await Future.wait([first, second]);
+
+    verify(
+      () => markDeleted(
+        const MarkLinkedInShareDeletedParams(shareId: 'share-old'),
+      ),
+    ).called(1);
+    verifyNever(() => publish(any()));
+    await cubit.close();
+  });
+
+  test('mark deleted does not call the api without an active share id',
+      () async {
+    stubStatus(active);
+    when(() => previewShare(any())).thenAnswer(
+      (_) async => const Right(LinkedInSharePreview(
+        previewId: 'preview-old',
+        simulationId: 'sim-1',
+        text: 'Previously published post',
+        contentSha256: 'hash-old',
+        existingContentMatches: true,
+        existingPostUrl: 'https://www.linkedin.com/feed/update/urn:li:share:9/',
+      )),
+    );
+    final cubit = build();
+    await cubit.begin(simulationId: 'sim-1');
+    await cubit.markDeletedOnLinkedIn();
+    verifyNever(() => markDeleted(any()));
+    verifyNever(() => publish(any()));
+    expect(cubit.state.phase, LinkedInSharePhase.alreadyShared);
+    await cubit.close();
+  });
+
+  test('a non-deletable share is not treated as an expired preview', () async {
+    stubStatus(active);
+    when(() => previewShare(any()))
+        .thenAnswer((_) async => const Right(publishedShare));
+    when(() => markDeleted(any())).thenAnswer(
+      (_) async => const Left(ConflictFailure(
+        'This share cannot be marked as deleted',
+        code: linkedInShareNotDeletableCode,
+      )),
+    );
+    final cubit = build();
+    await cubit.begin(simulationId: 'sim-1');
+    await cubit.markDeletedOnLinkedIn();
+    expect(cubit.state.phase, LinkedInSharePhase.error);
+    expect(cubit.state.notice, LinkedInShareNotice.shareNotDeletable);
+    expect(cubit.state.notice, isNot(LinkedInShareNotice.previewExpired));
+    verifyNever(() => publish(any()));
+    await cubit.close();
+  });
+
+  test('mark deleted maps confirmation, missing, session, and network failures',
+      () async {
+    stubStatus(active);
+    final cases = <Failure, LinkedInShareNotice>{
+      const ValidationFailure('confirm'):
+          LinkedInShareNotice.confirmationRequired,
+      const NotFoundFailure('missing'): LinkedInShareNotice.shareNotFound,
+      const UnauthorizedFailure('session'): LinkedInShareNotice.sessionExpired,
+      const NetworkFailure('offline'): LinkedInShareNotice.network,
+    };
+    for (final entry in cases.entries) {
+      when(() => previewShare(any()))
+          .thenAnswer((_) async => const Right(publishedShare));
+      when(() => markDeleted(any())).thenAnswer((_) async => Left(entry.key));
+      final cubit = build();
+      await cubit.begin(simulationId: 'sim-1');
+      await cubit.markDeletedOnLinkedIn();
+      expect(cubit.state.notice, entry.value);
+      expect(cubit.state.notice, isNot(LinkedInShareNotice.generic));
+      verifyNever(() => publish(any()));
+      await cubit.close();
+    }
+  });
 
   test('duplicate publish taps while the request is open call publish once',
       () async {

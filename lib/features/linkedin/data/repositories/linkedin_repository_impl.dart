@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/linkedin_connection_status.dart';
+import '../../domain/entities/linkedin_mark_deleted_result.dart';
 import '../../domain/entities/linkedin_oauth_start.dart';
 import '../../domain/entities/linkedin_publish_result.dart';
 import '../../domain/entities/linkedin_share_preview.dart';
@@ -71,6 +72,19 @@ class LinkedInRepositoryImpl implements LinkedInRepository {
   }
 
   @override
+  Future<Either<Failure, LinkedInMarkDeletedResult>> markDeleted({
+    required String shareId,
+  }) async {
+    try {
+      return Right(await remoteDataSource.markDeleted(shareId: shareId));
+    } on AppException catch (error) {
+      return Left(_mapException(error));
+    } catch (error) {
+      return Left(ServerFailure(error.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> disconnect() async {
     try {
       await remoteDataSource.disconnect();
@@ -92,7 +106,15 @@ class LinkedInRepositoryImpl implements LinkedInRepository {
     }
     if (error is ForbiddenException) return ForbiddenFailure(error.message);
     if (error is NotFoundException) return NotFoundFailure(error.message);
-    if (error is ConflictException) return ConflictFailure(error.message);
+    if (error is ConflictException) {
+      return ConflictFailure(
+        error.message,
+        code: error.code,
+        postUrl: error.postUrl,
+        shareId: error.shareId,
+      );
+    }
+    if (error is ValidationException) return ValidationFailure(error.message);
     if (error is GoneException) return GoneFailure(error.message);
     if (error is NetworkException) return NetworkFailure(error.message);
     if (error is UpstreamException) return UpstreamFailure(error.message);
