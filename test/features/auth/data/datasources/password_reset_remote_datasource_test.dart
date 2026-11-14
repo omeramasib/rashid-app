@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:rashed_app/core/error/exceptions.dart';
 import 'package:rashed_app/core/error/password_reset_problem.dart';
 import 'package:rashed_app/core/network/api_endpoints.dart';
+import 'package:rashed_app/core/auth/rashed_session.dart';
 import 'package:rashed_app/core/network/auth_interceptor.dart';
 import 'package:rashed_app/core/network/dio_client.dart';
 import 'package:rashed_app/core/storage/secure_storage_service.dart';
@@ -169,7 +170,7 @@ void main() {
 
   test('password requests discard stale Authorization credentials', () async {
     final storage = MockStorage();
-    dio.interceptors.add(AuthInterceptor(storage));
+    dio.interceptors.add(AuthInterceptor(RashedSession(storage)));
     respond();
     await dio.post(ApiEndpoints.resetPassword,
         options: Options(headers: {'Authorization': 'Bearer stale'}),
@@ -180,7 +181,7 @@ void main() {
 
   test('public endpoint 401 does not clear an existing session', () async {
     final storage = MockStorage();
-    dio.interceptors.add(AuthInterceptor(storage));
+    dio.interceptors.add(AuthInterceptor(RashedSession(storage)));
     respond(status: 401, body: const {'detail': 'Unauthenticated'});
     await expectLater(dio.post(ApiEndpoints.forgotPassword, data: const {}),
         throwsA(isA<DioException>()));
@@ -191,7 +192,7 @@ void main() {
     final storage = MockStorage();
     when(() => storage.read(key: 'token'))
         .thenAnswer((_) async => 'saved-token');
-    dio.interceptors.add(AuthInterceptor(storage));
+    dio.interceptors.add(AuthInterceptor(RashedSession(storage)));
     respond();
     await dio.get(ApiEndpoints.currentUser);
     expect(request!.headers['Authorization'], 'Bearer saved-token');

@@ -9,8 +9,9 @@ import 'package:rashed_app/core/di/injection_container.dart' as di;
 import 'package:rashed_app/features/home/presentation/cubit/simulation_history_count_cubit.dart';
 import 'package:rashed_app/features/simulation/domain/interview_options.dart';
 import 'package:rashed_app/features/simulation/presentation/interview_navigation.dart';
+import 'package:rashed_app/core/auth/end_rashed_session.dart';
+import 'package:rashed_app/core/auth/rashed_session.dart';
 import 'package:rashed_app/core/error/failures.dart';
-import 'package:rashed_app/core/storage/secure_storage_service.dart';
 import 'package:rashed_app/features/cv/data/datasources/cv_local_datasource.dart';
 import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/localization/app_text_direction.dart';
@@ -1168,20 +1169,13 @@ class _MoreBody extends StatelessWidget {
             isDestructive: true,
             onTap: () async {
               _countCubitOf(context)?.clearSession();
-              final storage = GetIt.instance<SecureStorageService>();
-              final userId = await storage.read(key: 'user_id');
+              final session = GetIt.instance<RashedSession>();
+              final userId = await session.readUserId();
               if (userId != null && userId.isNotEmpty) {
                 await GetIt.instance<CvLocalDataSource>().delete(userId);
               }
-              await storage.delete(key: 'token');
-              await storage.delete(key: 'user_id');
-              await storage.delete(key: 'email');
               if (context.mounted) {
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  RoutesName.login,
-                  (route) => false,
-                );
+                await endRashedSession(context, session);
               }
             },
           ),

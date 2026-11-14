@@ -27,6 +27,13 @@ abstract class AuthRepository {
   /// Returns User with token on success
   Future<Either<Failure, User>> registerWithLinkedIn(String clerkSessionJwt);
 
+  /// Attach LinkedIn to the authenticated user.
+  /// Requires the current password. A matching email does not link the account.
+  Future<Either<Failure, void>> linkLinkedIn({
+    required String clerkSessionJwt,
+    required String currentPassword,
+  });
+
   /// Forgot password
   Future<Either<Failure, void>> forgotPassword(String email);
 

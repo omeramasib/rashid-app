@@ -4,9 +4,11 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rashed_app/core/auth/clerk_auth_service.dart';
+import 'package:rashed_app/core/auth/rashed_session.dart';
 import 'package:rashed_app/core/error/failures.dart';
 import 'package:rashed_app/core/storage/secure_storage_service.dart';
 import 'package:rashed_app/features/auth/domain/entities/user.dart';
+import 'package:rashed_app/features/auth/domain/linkedin_auth_conflicts.dart';
 import 'package:rashed_app/features/auth/domain/usecases/register_usecase.dart';
 import 'package:rashed_app/features/auth/presentation/cubit/register/register_cubit.dart';
 
@@ -45,7 +47,7 @@ void main() {
       registerWithEmailUseCase: mockRegisterWithEmailUseCase,
       registerWithLinkedInUseCase: mockRegisterWithLinkedInUseCase,
       clerkAuthService: mockClerkAuthService,
-      secureStorageService: mockSecureStorageService,
+      session: RashedSession(mockSecureStorageService),
     );
   });
 
@@ -121,6 +123,55 @@ void main() {
       expect: () => [
         RegisterLinkedInLoading(),
         isA<RegisterFailure>(),
+      ],
+    );
+
+    blocTest<RegisterCubit, RegisterState>(
+      'existing email conflict keeps the backend detail and offers email sign-in',
+      build: () {
+        when(() => mockClerkAuthService.signInWithLinkedIn(any())).thenAnswer(
+          (_) async => const SocialAuthResult(accessToken: 'clerk-session'),
+        );
+        when(() => mockRegisterWithLinkedInUseCase(any())).thenAnswer(
+          (_) async => const Left(
+            ConflictFailure(LinkedInAuthConflicts.emailAccountExists),
+          ),
+        );
+        return cubit;
+      },
+      act: (cubit) => cubit.registerWithLinkedIn(mockBuildContext),
+      expect: () => [
+        RegisterLinkedInLoading(),
+        const RegisterFailure(
+          LinkedInAuthConflicts.emailAccountExists,
+          offerEmailSignIn: true,
+        ),
+      ],
+      verify: (_) {
+        expect(
+          (cubit.state as RegisterFailure).message,
+          isNot(contains("Instance of 'ConflictException'")),
+        );
+      },
+    );
+
+    blocTest<RegisterCubit, RegisterState>(
+      'identity conflict keeps the backend detail without an email sign-in action',
+      build: () {
+        when(() => mockClerkAuthService.signInWithLinkedIn(any())).thenAnswer(
+          (_) async => const SocialAuthResult(accessToken: 'clerk-session'),
+        );
+        when(() => mockRegisterWithLinkedInUseCase(any())).thenAnswer(
+          (_) async => const Left(
+            ConflictFailure(LinkedInAuthConflicts.identityConflict),
+          ),
+        );
+        return cubit;
+      },
+      act: (cubit) => cubit.registerWithLinkedIn(mockBuildContext),
+      expect: () => [
+        RegisterLinkedInLoading(),
+        const RegisterFailure(LinkedInAuthConflicts.identityConflict),
       ],
     );
   });

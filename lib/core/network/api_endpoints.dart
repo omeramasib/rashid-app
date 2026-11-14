@@ -12,6 +12,7 @@ class ApiEndpoints {
   static const String registerEmail = '/auth/register/email';
   static const String loginLinkedIn = '/auth/login/linkedin';
   static const String registerLinkedIn = '/auth/register/linkedin';
+  static const String linkLinkedIn = '/auth/link/linkedin';
   static const String forgotPassword = '/auth/forgot-password';
   static const String resendOtp = '/auth/resend-otp';
   static const String resetPassword = '/auth/reset-password';

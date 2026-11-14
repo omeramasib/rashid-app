@@ -7,6 +7,7 @@ import 'package:rashed_app/core/error/password_reset_problem.dart';
 import 'package:rashed_app/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:rashed_app/features/auth/data/models/user_model.dart';
 import 'package:rashed_app/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:rashed_app/features/auth/domain/linkedin_auth_conflicts.dart';
 
 class MockAuthRemoteDataSource extends Mock implements AuthRemoteDataSource {}
 
@@ -166,6 +167,45 @@ void main() {
             equals(const Left(ServerFailure('LinkedIn registration failed'))));
       },
     );
+
+    test('maps a 409 email conflict without stringifying the exception',
+        () async {
+      when(() => mockRemoteDataSource.registerWithLinkedIn(any())).thenThrow(
+        ConflictException(LinkedInAuthConflicts.emailAccountExists),
+      );
+      final result = await repository.registerWithLinkedIn(tLinkedInToken);
+      expect(
+        result,
+        const Left(ConflictFailure(LinkedInAuthConflicts.emailAccountExists)),
+      );
+      expect(
+        ConflictException(LinkedInAuthConflicts.emailAccountExists).toString(),
+        LinkedInAuthConflicts.emailAccountExists,
+      );
+    });
+  });
+
+  group('linkLinkedIn', () {
+    test('maps a 409 identity conflict and keeps the backend detail', () async {
+      when(() => mockRemoteDataSource.linkLinkedIn(
+            clerkSessionJwt: any(named: 'clerkSessionJwt'),
+            currentPassword: any(named: 'currentPassword'),
+          )).thenThrow(
+        ConflictException(LinkedInAuthConflicts.identityConflict),
+      );
+      final result = await repository.linkLinkedIn(
+        clerkSessionJwt: tLinkedInToken,
+        currentPassword: 'current-password',
+      );
+      expect(
+        result,
+        const Left(ConflictFailure(LinkedInAuthConflicts.identityConflict)),
+      );
+      verify(() => mockRemoteDataSource.linkLinkedIn(
+            clerkSessionJwt: tLinkedInToken,
+            currentPassword: 'current-password',
+          )).called(1);
+    });
   });
 
   group('password reset mapping', () {

@@ -16,6 +16,7 @@ import '../speech/speech_to_text_service.dart';
 import '../network/dio_client.dart';
 import '../auth/clerk_auth_service.dart';
 import '../auth/clerk_config.dart';
+import '../auth/rashed_session.dart';
 import '../storage/secure_storage_service.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
@@ -30,6 +31,7 @@ import '../../features/auth/domain/usecases/forgot_password_usecase.dart';
 import '../../features/auth/domain/usecases/resend_otp_usecase.dart';
 import '../../features/auth/domain/usecases/reset_password_usecase.dart';
 import '../../features/auth/domain/usecases/change_password_usecase.dart';
+import '../../features/auth/domain/usecases/link_linkedin_usecase.dart';
 import '../../features/auth/domain/usecases/logout_usecase.dart';
 import '../../features/auth/domain/usecases/get_current_user_usecase.dart';
 import '../../features/auth/presentation/cubit/profile/auth_profile_cubit.dart';
@@ -97,7 +99,7 @@ Future<void> init() async {
       loginWithLinkedInUseCase: sl(),
       registerWithLinkedInUseCase: sl(),
       clerkAuthService: sl(),
-      secureStorageService: sl(),
+      session: sl(),
     ),
   );
   sl.registerFactory(
@@ -105,7 +107,7 @@ Future<void> init() async {
       registerWithEmailUseCase: sl(),
       registerWithLinkedInUseCase: sl(),
       clerkAuthService: sl(),
-      secureStorageService: sl(),
+      session: sl(),
     ),
   );
 
@@ -114,6 +116,8 @@ Future<void> init() async {
       getCurrentUserUseCase: sl(),
       changePasswordUseCase: sl(),
       logoutUseCase: sl(),
+      linkLinkedInUseCase: sl(),
+      clerkAuthService: sl(),
     ),
   );
   sl.registerFactory(
@@ -136,6 +140,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ResendOtpUseCase(sl()));
   sl.registerLazySingleton(() => ResetPasswordUseCase(sl()));
   sl.registerLazySingleton(() => ChangePasswordUseCase(sl()));
+  sl.registerLazySingleton(() => LinkLinkedInUseCase(sl()));
   sl.registerLazySingleton(() => LogoutUseCase(sl()));
   sl.registerLazySingleton(() => GetCurrentUserUseCase(sl()));
 
@@ -363,11 +368,12 @@ Future<void> init() async {
 
   // Storage
   sl.registerLazySingleton(() => SecureStorageService());
+  sl.registerLazySingleton(() => RashedSession(sl()));
 
   // Network
   sl.registerLazySingleton(
     () => DioClient(
-      storage: sl(),
+      session: sl(),
       languageCode: () => sl<LocalizationBloc>().state.locale.languageCode,
     ),
   );

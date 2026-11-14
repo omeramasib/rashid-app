@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/error/exceptions.dart';
@@ -26,6 +25,14 @@ abstract class AuthRemoteDataSource {
   /// Register with LinkedIn via Clerk session JWT
   /// POST /auth/register/linkedin
   Future<UserModel> registerWithLinkedIn(String clerkSessionJwt);
+
+  /// Attach LinkedIn to the authenticated user.
+  /// POST /auth/link/linkedin
+  /// The current password is required. Email is never sent.
+  Future<void> linkLinkedIn({
+    required String clerkSessionJwt,
+    required String currentPassword,
+  });
 
   /// Forgot password
   /// POST /auth/forgot-password
@@ -119,27 +126,31 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
       return UserModel.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      final appError = e.error;
-      String errorMessage = 'Unknown error';
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
 
-      if (appError is AppException) {
-        errorMessage = appError.message;
-      } else if (e.response?.data != null) {
-        errorMessage = e.response?.data.toString() ?? 'Unknown error';
-      } else {
-        errorMessage = e.message ?? 'Unknown error';
-      }
-
-      debugPrint('loginWithLinkedIn Error Captured: $errorMessage');
-      debugPrint('loginWithLinkedIn DioException details:\n'
-          '  - Error: ${e.error}\n'
-          '  - Message: ${e.message}\n'
-          '  - Type: ${e.type}\n'
-          '  - Response statusCode: ${e.response?.statusCode}\n'
-          '  - Response statusMessage: ${e.response?.statusMessage}\n'
-          '  - Response data: ${e.response?.data}');
-
-      throw appError is AppException ? appError : ServerException(errorMessage);
+  @override
+  Future<void> linkLinkedIn({
+    required String clerkSessionJwt,
+    required String currentPassword,
+  }) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.linkLinkedIn,
+        data: {
+          'clerk_session_jwt': clerkSessionJwt,
+          'current_password': currentPassword,
+        },
+      );
+    } on DioException catch (e) {
+      throw e.error is AppException
+          ? e.error as AppException
+          : ServerException(e.message ?? 'Unknown error');
     } catch (e) {
       throw ServerException(e.toString());
     }
