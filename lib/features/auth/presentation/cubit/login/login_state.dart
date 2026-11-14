@@ -25,10 +25,11 @@ class LoginSuccess extends LoginState {
 
 class LoginFailure extends LoginState {
   final String message;
-  const LoginFailure(this.message);
+  final bool offerEmailSignIn;
+  const LoginFailure(this.message, {this.offerEmailSignIn = false});
 
   @override
-  List<Object> get props => [message];
+  List<Object> get props => [message, offerEmailSignIn];
 }
 
 class ViewPasswordState extends LoginState {

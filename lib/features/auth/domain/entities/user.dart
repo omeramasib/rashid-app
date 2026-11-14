@@ -11,17 +11,19 @@ class User extends Equatable {
   final String? name;
   final String? email;
   final String? token;
+  final bool linkedinLinked;
 
   const User({
     this.id,
     this.name,
     this.email,
     this.token,
+    this.linkedinLinked = false,
   });
 
   /// Check if user has a valid token for authenticated requests
   bool get hasToken => token != null && token!.isNotEmpty;
 
   @override
-  List<Object?> get props => [id, name, email, token];
+  List<Object?> get props => [id, name, email, token, linkedinLinked];
 }

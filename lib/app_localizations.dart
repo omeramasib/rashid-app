@@ -56,6 +56,9 @@ class AppLocalizations {
 
   static const Map<String, String> _knownMessages = {
     'LinkedIn authentication failed': 'err_linkedin_auth_failed',
+    'An account with this email already exists. Sign in with email and connect LinkedIn from your profile.':
+        'linkedin_email_account_exists',
+    'This LinkedIn account cannot be connected.': 'linkedin_identity_conflict',
     'LinkedIn authentication not configured. Please set up Clerk.':
         'err_linkedin_not_configured',
     'Unexpected CV profile response': 'err_unexpected_cv_profile',

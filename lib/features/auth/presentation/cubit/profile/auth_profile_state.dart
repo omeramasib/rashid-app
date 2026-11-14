@@ -33,3 +33,5 @@ class AuthProfileError extends AuthProfileState {
 class AuthProfileLoggedOut extends AuthProfileState {}
 
 class PasswordChangeSuccess extends AuthProfileState {}
+
+class LinkedInAccountLinked extends AuthProfileState {}

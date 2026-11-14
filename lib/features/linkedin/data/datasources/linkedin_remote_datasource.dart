@@ -4,6 +4,7 @@ import '../../../../core/error/exceptions.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/dio_client.dart';
 import '../models/linkedin_connection_status_model.dart';
+import '../models/linkedin_mark_deleted_result_model.dart';
 import '../models/linkedin_oauth_start_model.dart';
 import '../models/linkedin_publish_result_model.dart';
 import '../models/linkedin_share_preview_model.dart';
@@ -19,6 +20,10 @@ abstract class LinkedInRemoteDataSource {
     required String previewId,
     required String simulationId,
     required String contentSha256,
+  });
+
+  Future<LinkedInMarkDeletedResultModel> markDeleted({
+    required String shareId,
   });
 
   Future<void> disconnect();
@@ -78,6 +83,19 @@ class LinkedInRemoteDataSourceImpl implements LinkedInRemoteDataSource {
         },
       );
       return LinkedInPublishResultModel.fromJson(response.data);
+    });
+  }
+
+  @override
+  Future<LinkedInMarkDeletedResultModel> markDeleted({
+    required String shareId,
+  }) async {
+    return _guard(() async {
+      final response = await _dio.post(
+        ApiEndpoints.linkedInMarkDeleted(shareId),
+        data: {'confirm_deleted_on_linkedin': true},
+      );
+      return LinkedInMarkDeletedResultModel.fromJson(response.data);
     });
   }
 

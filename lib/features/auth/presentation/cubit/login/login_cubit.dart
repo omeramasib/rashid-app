@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../../core/auth/clerk_auth_service.dart';
+import '../../../../../core/auth/rashed_session.dart';
 import '../../../../../core/error/failures.dart';
-import '../../../../../core/storage/secure_storage_service.dart';
 import '../../../domain/entities/user.dart';
+import '../../../domain/linkedin_auth_conflicts.dart';
 import '../../../domain/usecases/login_usecase.dart';
 import '../../../domain/usecases/register_usecase.dart';
 
@@ -15,18 +18,28 @@ class LoginCubit extends Cubit<LoginState> {
   final LoginWithLinkedInUseCase loginWithLinkedInUseCase;
   final RegisterWithLinkedInUseCase registerWithLinkedInUseCase;
   final ClerkAuthService clerkAuthService;
-  final SecureStorageService secureStorageService;
+  final RashedSession session;
   bool isPasswordVisible = false;
+  var _linkedinBusy = false;
+  var _generation = 0;
+  late final StreamSubscription<void> _sessionSub;
 
   LoginCubit({
     required this.loginWithEmailUseCase,
     required this.loginWithLinkedInUseCase,
     required this.registerWithLinkedInUseCase,
     required this.clerkAuthService,
-    required this.secureStorageService,
-  }) : super(LoginInitial());
+    required this.session,
+  }) : super(LoginInitial()) {
+    _sessionSub = session.onCleared.listen((_) {
+      _generation++;
+      _linkedinBusy = false;
+      if (!isClosed) emit(LoginInitial());
+    });
+  }
 
-  /// Login with email and password
+  /// Login with email and password.
+  /// A missing Rashed user is not registered through LinkedIn.
   Future<void> loginWithEmail({
     required String email,
     required String password,
@@ -39,84 +52,101 @@ class LoginCubit extends Cubit<LoginState> {
 
     await result.fold<Future<void>>(
       (failure) async => emit(LoginFailure(failure.message)),
-      (user) async {
-        await _storeUserCredentials(user, email: email);
-        emit(LoginSuccess(user));
-      },
+      (user) => _completeLogin(
+        user,
+        email: email,
+        missingTokenMessage: 'Login failed',
+      ),
     );
   }
 
   /// Login with LinkedIn via Clerk OAuth.
-  /// If the user is not found (404), automatically registers them.
+  ///
+  /// A 404 from this call is the only registration trigger. Clerk success
+  /// alone does not create a Rashed session.
   Future<void> loginWithLinkedIn(BuildContext context) async {
-    print('DEBUG: LoginCubit - loginWithLinkedIn called');
+    if (_linkedinBusy) return;
+    _linkedinBusy = true;
+    final generation = ++_generation;
     emit(LoginLinkedInLoading());
+    try {
+      final clerkResult = await clerkAuthService.signInWithLinkedIn(context);
+      if (!_current(generation)) return;
+      if (!clerkResult.isSuccess) {
+        emit(LoginFailure(
+          clerkResult.error ?? 'LinkedIn authentication failed',
+        ));
+        return;
+      }
 
-    // Step 1: Get Clerk session JWT
-    print('DEBUG: LoginCubit - Calling clerkAuthService.signInWithLinkedIn');
-    final clerkResult = await clerkAuthService.signInWithLinkedIn(context);
-    print(
-        'DEBUG: LoginCubit - clerkResult: isSuccess=${clerkResult.isSuccess}, error=${clerkResult.error}');
+      final jwt = clerkResult.accessToken!;
+      final loginResult = await loginWithLinkedInUseCase(
+        LoginWithLinkedInParams(clerkSessionJwt: jwt),
+      );
+      if (!_current(generation)) return;
 
-    if (!clerkResult.isSuccess) {
-      emit(LoginFailure(clerkResult.error ?? 'LinkedIn authentication failed'));
-      return;
-    }
-
-    final jwt = clerkResult.accessToken!;
-
-    // Step 2: Try login
-    print('DEBUG: LoginCubit - Attempting LinkedIn login');
-    final loginResult = await loginWithLinkedInUseCase(
-      LoginWithLinkedInParams(clerkSessionJwt: jwt),
-    );
-
-    await loginResult.fold(
-      (failure) async {
-        if (failure is UserNotFoundFailure) {
-          // Step 3: User not found → auto-register
-          print('DEBUG: LoginCubit - User not found, auto-registering');
+      await loginResult.fold<Future<void>>(
+        (failure) async {
+          if (failure is! NotFoundFailure && failure is! UserNotFoundFailure) {
+            emit(_linkedInFailure(failure));
+            return;
+          }
           final registerResult = await registerWithLinkedInUseCase(
             RegisterWithLinkedInParams(clerkSessionJwt: jwt),
           );
-
-          registerResult.fold(
-            (regFailure) => emit(LoginFailure(regFailure.message)),
-            (user) async {
-              print('DEBUG: LoginCubit - Auto-registration successful');
-              await _storeUserCredentials(user);
-              emit(LoginSuccess(user));
-            },
+          if (!_current(generation)) return;
+          await registerResult.fold<Future<void>>(
+            (regFailure) async => emit(_linkedInFailure(regFailure)),
+            (user) => _completeLogin(user),
           );
-        } else {
-          emit(LoginFailure(failure.message));
-        }
-      },
-      (user) async {
-        print('DEBUG: LoginCubit - LinkedIn login successful');
-        await _storeUserCredentials(user);
-        emit(LoginSuccess(user));
-      },
-    );
+        },
+        (user) => _completeLogin(user),
+      );
+    } catch (_) {
+      if (_current(generation)) {
+        emit(const LoginFailure('LinkedIn authentication failed'));
+      }
+    } finally {
+      if (generation == _generation) _linkedinBusy = false;
+    }
   }
 
-  /// Store user credentials in secure storage
-  Future<void> _storeUserCredentials(User user, {String? email}) async {
-    if (user.token != null) {
-      await secureStorageService.write(key: 'token', value: user.token!);
+  bool _current(int generation) => !isClosed && generation == _generation;
+
+  Future<void> _completeLogin(
+    User user, {
+    String? email,
+    String missingTokenMessage = 'LinkedIn authentication failed',
+  }) async {
+    if (!user.hasToken) {
+      emit(LoginFailure(missingTokenMessage));
+      return;
     }
-    if (user.id != null) {
-      await secureStorageService.write(key: 'user_id', value: user.id!);
-    }
-    if (email != null) {
-      await secureStorageService.write(key: 'email', value: email);
-    } else if (user.email != null) {
-      await secureStorageService.write(key: 'email', value: user.email!);
-    }
+    await session.persist(
+      token: user.token,
+      userId: user.id,
+      email: email ?? user.email,
+    );
+    if (!isClosed) emit(LoginSuccess(user));
+  }
+
+  LoginFailure _linkedInFailure(Failure failure) {
+    return LoginFailure(
+      failure.message,
+      offerEmailSignIn:
+          LinkedInAuthConflicts.offersEmailSignIn(failure.message) &&
+              failure is ConflictFailure,
+    );
   }
 
   void viewPassword() {
     isPasswordVisible = !isPasswordVisible;
     emit(ViewPasswordState(enabled: isPasswordVisible));
+  }
+
+  @override
+  Future<void> close() async {
+    await _sessionSub.cancel();
+    return super.close();
   }
 }

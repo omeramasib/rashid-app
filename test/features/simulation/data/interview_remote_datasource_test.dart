@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rashed_app/core/error/exceptions.dart';
 import 'package:rashed_app/core/network/api_endpoints.dart';
+import 'package:rashed_app/core/auth/rashed_session.dart';
 import 'package:rashed_app/core/network/auth_interceptor.dart';
 import 'package:rashed_app/core/network/dio_client.dart';
 import 'package:rashed_app/core/network/response_interceptor.dart';
@@ -317,7 +318,7 @@ void main() {
       'status': 'success',
       'data': {'total_simulations': 12},
     });
-    dio.interceptors.insert(0, AuthInterceptor(storage));
+    dio.interceptors.insert(0, AuthInterceptor(RashedSession(storage)));
     await source.getSimulationHistoryCount();
     expect(request?.headers['Authorization'], 'Bearer access-token');
   });

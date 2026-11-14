@@ -6,23 +6,33 @@ class UserModel extends User {
     super.name,
     super.email,
     super.token,
+    super.linkedinLinked,
   });
 
   /// Parse auth response JSON.
-  /// 
+  ///
   /// Handles different response shapes:
   /// - Login response: { status, token, user: { id, name, email } }
   /// - Register response: { status, message, user_id }
+  /// - Current user: { id, name, email, linkedin_linked }
   factory UserModel.fromJson(Map<String, dynamic> json) {
-    // Handle nested user object (login responses)
-    final userMap = json['user'] as Map<String, dynamic>?;
-    
+    final userMap = json['user'] is Map
+        ? Map<String, dynamic>.from(json['user'] as Map)
+        : null;
+
     return UserModel(
-      id: userMap?['id'] ?? json['user_id'],
-      name: userMap?['name'],
-      email: userMap?['email'],
-      token: json['token'],
+      id: _string(userMap?['id'] ?? json['id'] ?? json['user_id']),
+      name: _string(userMap?['name'] ?? json['name']),
+      email: _string(userMap?['email'] ?? json['email']),
+      token: _string(json['token']),
+      linkedinLinked: userMap?['linkedin_linked'] == true ||
+          json['linkedin_linked'] == true,
     );
+  }
+
+  static String? _string(Object? value) {
+    if (value is! String || value.isEmpty) return null;
+    return value;
   }
 
   Map<String, dynamic> toJson() {
@@ -31,6 +41,7 @@ class UserModel extends User {
       if (name != null) 'name': name,
       if (email != null) 'email': email,
       if (token != null) 'token': token,
+      'linkedin_linked': linkedinLinked,
     };
   }
 
@@ -40,12 +51,14 @@ class UserModel extends User {
     String? name,
     String? email,
     String? token,
+    bool? linkedinLinked,
   }) {
     return UserModel(
       id: id ?? this.id,
       name: name ?? this.name,
       email: email ?? this.email,
       token: token ?? this.token,
+      linkedinLinked: linkedinLinked ?? this.linkedinLinked,
     );
   }
 }

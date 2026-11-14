@@ -5,11 +5,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rashed_app/app/routes_name.dart';
 import 'package:rashed_app/app_localizations.dart';
 import 'package:rashed_app/core/ads/ad_consent_service.dart';
+import 'package:rashed_app/core/auth/end_rashed_session.dart';
+import 'package:rashed_app/core/auth/rashed_session.dart';
 import 'package:rashed_app/core/di/injection_container.dart' as di;
 import 'package:rashed_app/core/localization/app_text_direction.dart';
 import 'package:rashed_app/core/localization/localization_bloc.dart';
 import 'package:rashed_app/core/theme/theme.dart';
+import 'package:rashed_app/features/profile/presentation/widgets/connected_accounts_sheet.dart';
 import 'package:rashed_app/features/profile/presentation/widgets/language_picker_sheet.dart';
+import 'package:rashed_app/features/auth/presentation/cubit/profile/auth_profile_cubit.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, this.adConsent});
@@ -133,15 +137,34 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       _buildMenuItem(
                         context: context,
+                        title: AppLocalizations.tr(context, 'connected_accounts'),
+                        icon: Icons.link_rounded,
+                        iconColor: AppColors.primarySet2,
+                        onTap: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: AppColors.white,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(16),
+                              ),
+                            ),
+                            builder: (_) => BlocProvider(
+                              create: (_) =>
+                                  di.sl<AuthProfileCubit>()..getCurrentUser(),
+                              child: const ConnectedAccountsSheet(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuItem(
+                        context: context,
                         title: AppLocalizations.tr(context, 'logout'),
                         icon: Icons.logout_rounded,
                         iconColor: AppColors.error,
                         onTap: () {
-                          Navigator.pushNamedAndRemoveUntil(
-                            context,
-                            RoutesName.login,
-                            (route) => false,
-                          );
+                          endRashedSession(context, di.sl<RashedSession>());
                         },
                       ),
                       const SizedBox(height: 16),

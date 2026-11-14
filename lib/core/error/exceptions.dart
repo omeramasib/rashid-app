@@ -3,6 +3,9 @@ import 'password_reset_problem.dart';
 class AppException implements Exception {
   final String message;
   AppException(this.message);
+
+  @override
+  String toString() => message;
 }
 
 class PasswordResetApiException extends AppException {
@@ -58,7 +61,11 @@ class RequestCancelledException extends AppException {
 }
 
 class ConflictException extends AppException {
-  ConflictException(super.message);
+  final String? code;
+  final String? postUrl;
+  final String? shareId;
+
+  ConflictException(super.message, {this.code, this.postUrl, this.shareId});
 }
 
 class GoneException extends AppException {

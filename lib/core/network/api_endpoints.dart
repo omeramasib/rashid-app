@@ -12,6 +12,7 @@ class ApiEndpoints {
   static const String registerEmail = '/auth/register/email';
   static const String loginLinkedIn = '/auth/login/linkedin';
   static const String registerLinkedIn = '/auth/register/linkedin';
+  static const String linkLinkedIn = '/auth/link/linkedin';
   static const String forgotPassword = '/auth/forgot-password';
   static const String resendOtp = '/auth/resend-otp';
   static const String resetPassword = '/auth/reset-password';
@@ -25,6 +26,9 @@ class ApiEndpoints {
   static const String linkedInSharePreview = '/api/v1/linkedin/share/preview';
   static const String linkedInPublish = '/api/v1/linkedin/publish';
   static const String linkedInDisconnect = '/api/v1/linkedin/disconnect';
+
+  static String linkedInMarkDeleted(String shareId) =>
+      '/api/v1/linkedin/shares/${Uri.encodeComponent(shareId)}/mark-deleted';
 
   // CV
   static const String cvUpload = '/api/v1/cv/upload';
