@@ -9,6 +9,7 @@ import '../models/interview_report_model.dart';
 import '../models/interview_simulation_history_model.dart';
 import '../models/simulation_history_count_model.dart';
 import '../models/interview_start_response_model.dart';
+import '../models/question_audio_model.dart';
 
 abstract class InterviewRemoteDataSource {
   Future<InterviewStartResponseModel> startByJob({
@@ -43,6 +44,10 @@ abstract class InterviewRemoteDataSource {
 
   Future<InterviewReportModel> getReport(String simulationId);
 
+  Future<QuestionAudioModel> getQuestionAudio(String questionId);
+
+  void cancelQuestionAudio();
+
   Future<List<InterviewSimulationHistoryModel>> getSimulationsHistory();
 
   Future<SimulationHistoryCountModel> getSimulationHistoryCount();
@@ -53,6 +58,9 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
 
   /// Question generation waits on the provider, which may retry once.
   static const Duration aiReceiveTimeout = Duration(seconds: 150);
+  static const Duration audioReceiveTimeout = Duration(seconds: 15);
+
+  CancelToken? _questionAudioCancel;
 
   InterviewRemoteDataSourceImpl({required this.client});
 
@@ -172,6 +180,41 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
       throw _exception(error);
     } catch (error) {
       throw ServerException(error.toString());
+    }
+  }
+
+  @override
+  Future<QuestionAudioModel> getQuestionAudio(String questionId) async {
+    cancelQuestionAudio();
+    final cancelToken = CancelToken();
+    _questionAudioCancel = cancelToken;
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.interviewQuestionAudio(questionId),
+        cancelToken: cancelToken,
+        options: Options(receiveTimeout: audioReceiveTimeout),
+      );
+      final data = response.data;
+      if (data is! Map) {
+        throw ServerException('Malformed question audio');
+      }
+      return QuestionAudioModel.fromJson(Map<String, dynamic>.from(data));
+    } on DioException catch (error) {
+      throw _exception(error);
+    } on FormatException {
+      throw ServerException('Malformed question audio');
+    } catch (error) {
+      if (error is AppException) rethrow;
+      throw ServerException(error.toString());
+    }
+  }
+
+  @override
+  void cancelQuestionAudio() {
+    final token = _questionAudioCancel;
+    _questionAudioCancel = null;
+    if (token != null && !token.isCancelled) {
+      token.cancel('question audio superseded');
     }
   }
 

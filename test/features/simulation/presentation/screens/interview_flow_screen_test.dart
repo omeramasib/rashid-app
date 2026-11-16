@@ -34,6 +34,7 @@ import 'package:rashed_app/features/simulation/presentation/screens/interview_re
 import 'package:rashed_app/features/simulation/presentation/screens/interview_setup_screen.dart';
 import 'package:rashed_app/features/simulation/presentation/widgets/interview_widgets.dart';
 
+import '../../../../helpers/fake_question_audio.dart';
 import '../../../../helpers/fake_speech.dart';
 
 class MockStartByJob extends Mock implements StartInterviewByJobUseCase {}
@@ -213,8 +214,11 @@ void main() {
       home: home,
       onGenerateRoute: (settings) {
         final page = switch (settings.name) {
-          RoutesName.simulationQuestion => BlocProvider(
-              create: (_) => idleSpeechCubit(),
+          RoutesName.simulationQuestion => MultiBlocProvider(
+              providers: [
+                BlocProvider(create: (_) => idleSpeechCubit()),
+                BlocProvider(create: (_) => idleQuestionAudioCubit()),
+              ],
               child: const InterviewQuestionScreen(),
             ),
           RoutesName.simulationEvaluation => const InterviewEvaluationScreen(),
@@ -235,8 +239,11 @@ void main() {
   Widget hosted(Widget child) {
     return BlocProvider.value(
       value: cubit,
-      child: BlocProvider(
-        create: (_) => idleSpeechCubit(),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => idleSpeechCubit()),
+          BlocProvider(create: (_) => idleQuestionAudioCubit()),
+        ],
         child: child,
       ),
     );

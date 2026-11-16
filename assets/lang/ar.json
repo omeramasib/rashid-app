@@ -341,5 +341,12 @@
     "speech_interrupted": "توقف التسجيل. اضغط على الميكروفون للمحاولة مرة أخرى.",
     "speech_network": "يحتاج التعرف على الكلام إلى اتصال بالإنترنت على هذا الجهاز. تحقق من الاتصال وحاول مرة أخرى.",
     "speech_error_generic": "تعذر التعرف على الكلام. يمكنك المحاولة مرة أخرى أو كتابة إجابتك.",
-    "speech_dismiss": "إغلاق"
+    "speech_dismiss": "إغلاق",
+    "question_audio_preparing": "جارٍ تجهيز الصوت",
+    "question_audio_play": "تشغيل السؤال",
+    "question_audio_pause": "إيقاف السؤال مؤقتًا",
+    "question_audio_resume": "استئناف السؤال",
+    "question_audio_replay": "إعادة تشغيل السؤال",
+    "question_audio_retry": "إعادة محاولة الصوت",
+    "question_audio_unavailable": "الصوت غير متاح"
 }

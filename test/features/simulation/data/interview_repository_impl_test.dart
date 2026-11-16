@@ -4,7 +4,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:rashed_app/core/error/exceptions.dart';
 import 'package:rashed_app/core/error/failures.dart';
 import 'package:rashed_app/features/simulation/data/datasources/interview_remote_datasource.dart';
+import 'package:rashed_app/features/simulation/data/models/question_audio_model.dart';
 import 'package:rashed_app/features/simulation/data/repositories/interview_repository_impl.dart';
+import 'package:rashed_app/features/simulation/domain/entities/question_audio.dart';
 import 'package:rashed_app/features/simulation/domain/failures/interview_start_failure.dart';
 
 class MockSource extends Mock implements InterviewRemoteDataSource {}
@@ -104,6 +106,48 @@ void main() {
     expect(
       result.fold((failure) => failure, (_) => null),
       isA<ServerFailure>(),
+    );
+  });
+
+  test('keeps question audio failures distinct', () async {
+    when(() => source.getQuestionAudio(any())).thenThrow(
+      UnauthorizedException('Could not validate credentials'),
+    );
+    final unauthorized = await repository.getQuestionAudio('q-1');
+    expect(
+      unauthorized.fold((failure) => failure, (_) => null),
+      isA<UnauthorizedFailure>(),
+    );
+
+    when(() => source.getQuestionAudio(any())).thenThrow(
+      NotFoundException('Question not found'),
+    );
+    final missing = await repository.getQuestionAudio('q-1');
+    expect(missing.fold((failure) => failure, (_) => null),
+        isA<NotFoundFailure>());
+
+    when(() => source.getQuestionAudio(any())).thenThrow(
+      ServiceUnavailableException('Question audio is temporarily unavailable'),
+    );
+    final unavailable = await repository.getQuestionAudio('q-1');
+    expect(
+      unavailable.fold((failure) => failure, (_) => null),
+      isA<ServiceUnavailableFailure>(),
+    );
+
+    when(() => source.getQuestionAudio(any())).thenAnswer(
+      (_) async => const QuestionAudioModel(
+        questionId: 'q-1',
+        status: QuestionAudioStatus.ready,
+        audioUrl: 'https://example.test/a.wav',
+        mimeType: 'audio/wav',
+        expiresInSeconds: 300,
+      ),
+    );
+    final ready = await repository.getQuestionAudio('q-1');
+    expect(
+      ready.fold((_) => null, (audio) => audio.status),
+      QuestionAudioStatus.ready,
     );
   });
 }

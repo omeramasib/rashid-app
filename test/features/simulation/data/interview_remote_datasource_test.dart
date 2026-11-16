@@ -12,6 +12,7 @@ import 'package:rashed_app/core/network/dio_client.dart';
 import 'package:rashed_app/core/network/response_interceptor.dart';
 import 'package:rashed_app/core/storage/secure_storage_service.dart';
 import 'package:rashed_app/features/simulation/data/datasources/interview_remote_datasource.dart';
+import 'package:rashed_app/features/simulation/domain/entities/question_audio.dart';
 
 class MockDioClient extends Mock implements DioClient {}
 
@@ -321,6 +322,70 @@ void main() {
     dio.interceptors.insert(0, AuthInterceptor(RashedSession(storage)));
     await source.getSimulationHistoryCount();
     expect(request?.headers['Authorization'], 'Bearer access-token');
+  });
+
+  test('reads question audio through the authenticated client', () async {
+    final storage = _TokenStorage()..token = 'access-token';
+    respond(body: {
+      'status': 'success',
+      'message': 'Question audio retrieved',
+      'data': {
+        'question_id': 'q 1',
+        'status': 'ready',
+        'audio_url': 'https://example.test/a.wav?signature=secret',
+        'mime_type': 'audio/wav',
+        'duration_ms': 3280,
+        'expires_in_seconds': 300,
+      },
+    });
+    dio.interceptors.insert(0, AuthInterceptor(RashedSession(storage)));
+
+    final audio = await source.getQuestionAudio('q 1');
+
+    expect(request?.path, ApiEndpoints.interviewQuestionAudio('q 1'));
+    expect(request?.headers['Authorization'], 'Bearer access-token');
+    expect(audio.status, QuestionAudioStatus.ready);
+    expect(audio.audioUrl, contains('signature=secret'));
+    expect(audio.durationMs, 3280);
+    expect(request?.receiveTimeout, const Duration(seconds: 15));
+  });
+
+  test('maps question audio http failures without rewriting them', () async {
+    respond(
+      status: 401,
+      body: {'detail': 'Could not validate credentials'},
+    );
+    expect(
+      source.getQuestionAudio('q-1'),
+      throwsA(isA<UnauthorizedException>()),
+    );
+
+    respond(status: 404, body: {'detail': 'Question not found'});
+    expect(source.getQuestionAudio('q-1'), throwsA(isA<NotFoundException>()));
+
+    respond(
+      status: 503,
+      body: {'detail': 'Question audio is temporarily unavailable'},
+    );
+    expect(
+      source.getQuestionAudio('q-1'),
+      throwsA(isA<ServiceUnavailableException>()),
+    );
+
+    respond(networkError: DioExceptionType.receiveTimeout);
+    expect(
+      source.getQuestionAudio('q-1'),
+      throwsA(isA<RequestTimeoutException>()),
+    );
+
+    respond(body: {
+      'status': 'success',
+      'data': {'question_id': 'q-1', 'status': 'ready', 'audio_url': ''},
+    });
+    expect(source.getQuestionAudio('q-1'), throwsA(isA<ServerException>()));
+
+    respond(body: {'status': 'success', 'data': null});
+    expect(source.getQuestionAudio('q-1'), throwsA(isA<ServerException>()));
   });
 }
 

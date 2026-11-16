@@ -27,6 +27,7 @@ import 'package:rashed_app/features/simulation/presentation/cubit/speech_input_c
 import 'package:rashed_app/features/simulation/presentation/screens/interview_question_screen.dart';
 import 'package:rashed_app/features/simulation/presentation/widgets/interview_widgets.dart';
 
+import '../../../../helpers/fake_question_audio.dart';
 import '../../../../helpers/fake_speech.dart';
 
 class MockStartByJob extends Mock implements StartInterviewByJobUseCase {}
@@ -175,7 +176,10 @@ void main() {
         value: interview,
         child: BlocProvider.value(
           value: speechCubit,
-          child: const InterviewQuestionScreen(),
+          child: BlocProvider(
+            create: (_) => idleQuestionAudioCubit(),
+            child: const InterviewQuestionScreen(),
+          ),
         ),
       ),
       onGenerateRoute: (settings) => MaterialPageRoute<void>(

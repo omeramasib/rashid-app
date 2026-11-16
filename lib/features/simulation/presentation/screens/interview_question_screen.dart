@@ -11,9 +11,11 @@ import '../../../../core/speech/append_transcript.dart';
 import '../../../../core/theme/theme.dart';
 import '../../domain/interview_options.dart';
 import '../cubit/interview_cubit.dart';
+import '../cubit/question_audio_cubit.dart';
 import '../cubit/speech_input_cubit.dart';
 import '../interview_error_text.dart';
 import '../widgets/interview_widgets.dart';
+import '../widgets/question_audio_control.dart';
 import '../widgets/speech_input_button.dart';
 import '../widgets/speech_input_message.dart';
 import '../widgets/speech_listening_indicator.dart';
@@ -26,9 +28,12 @@ class InterviewQuestionScreen extends HookWidget {
     final controller = useTextEditingController();
     final state = context.watch<InterviewCubit>().state;
     final speechCubit = context.read<SpeechInputCubit>();
+    final audioCubit = context.read<QuestionAudioCubit>();
     final question = state.currentQuestion;
     final savedAnswer =
         question == null ? null : state.submittedAnswers[question.id];
+    final deferAudio =
+        question != null && state.evaluations.containsKey(question.id);
     final appliedSession = useRef(0);
     useEffect(() {
       controller.text = savedAnswer ?? '';
@@ -37,20 +42,30 @@ class InterviewQuestionScreen extends HookWidget {
     useEffect(() {
       return () => unawaited(speechCubit.cancel());
     }, [question?.id]);
+    useEffect(() {
+      final current = question;
+      if (current == null) return null;
+      audioCubit.showQuestion(current, deferUntilPlay: deferAudio);
+      return null;
+    }, [question?.id, deferAudio]);
     useListenable(controller);
 
     return Directionality(
       textDirection: AppTextDirection.of(context),
       child: BlocListener<InterviewCubit, InterviewState>(
         listenWhen: (previous, current) =>
+            (previous.phase != InterviewPhase.finishing &&
+                current.phase == InterviewPhase.finishing) ||
             (previous.phase == InterviewPhase.submitting &&
                 current.phase == InterviewPhase.inProgress &&
                 current.error == null) ||
             (previous.phase != InterviewPhase.finished &&
                 current.phase == InterviewPhase.finished),
         listener: (context, next) {
+          unawaited(context.read<QuestionAudioCubit>().stop());
           if (!context.mounted) return;
           if (ModalRoute.of(context)?.isCurrent != true) return;
+          if (next.phase == InterviewPhase.finishing) return;
           final cubit = context.read<InterviewCubit>();
           if (next.phase == InterviewPhase.finished) {
             Navigator.pushNamed(
@@ -82,20 +97,32 @@ class InterviewQuestionScreen extends HookWidget {
               controller,
               appliedSession,
             ),
-            child: Scaffold(
-              backgroundColor: AppColors.white,
-              body: SafeArea(
-                child: Column(
-                  children: [
-                    InterviewTopBar(
-                      title: AppLocalizations.tr(
-                        context,
-                        'interview_questions_title',
+            child: BlocListener<SpeechInputCubit, SpeechInputState>(
+              listenWhen: (previous, current) =>
+                  previous.status.isActive != current.status.isActive,
+              listener: (context, speech) {
+                final audio = context.read<QuestionAudioCubit>();
+                if (speech.status.isActive) {
+                  unawaited(audio.suspendForRecording());
+                } else {
+                  audio.recordingEnded();
+                }
+              },
+              child: Scaffold(
+                backgroundColor: AppColors.white,
+                body: SafeArea(
+                  child: Column(
+                    children: [
+                      InterviewTopBar(
+                        title: AppLocalizations.tr(
+                          context,
+                          'interview_questions_title',
+                        ),
+                        onBack: () => _confirmFinish(context),
                       ),
-                      onBack: () => _confirmFinish(context),
-                    ),
-                    Expanded(child: _body(context, state, controller)),
-                  ],
+                      Expanded(child: _body(context, state, controller)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -168,6 +195,16 @@ class InterviewQuestionScreen extends HookWidget {
                   color: AppColors.fontColor,
                 ),
               ),
+              QuestionAudioControl(
+                state: context.watch<QuestionAudioCubit>().state,
+                questionId: question.id,
+                recording: recording,
+                onPlay: () => context.read<QuestionAudioCubit>().play(),
+                onPause: () => context.read<QuestionAudioCubit>().pause(),
+                onResume: () => context.read<QuestionAudioCubit>().resume(),
+                onReplay: () => context.read<QuestionAudioCubit>().replay(),
+                onRetry: () => context.read<QuestionAudioCubit>().retry(),
+              ),
             ],
           ),
         ),
@@ -193,11 +230,11 @@ class InterviewQuestionScreen extends HookWidget {
             suffixIcon: showSpeech
                 ? SpeechInputButton(
                     status: speech.status,
-                    onStart: () => speechCubit.start(
+                    onStart: () => unawaited(_startVoiceAnswer(
+                      context,
                       questionId: question.id,
-                      languageCode: state.languageCode ??
-                          Localizations.localeOf(context).languageCode,
-                    ),
+                      languageCode: state.languageCode,
+                    )),
                     onStop: speechCubit.finish,
                   )
                 : null,
@@ -251,11 +288,14 @@ class InterviewQuestionScreen extends HookWidget {
                   key: const Key('interview_view_review'),
                   label: AppLocalizations.tr(context, 'interview_view_review'),
                   primary: false,
-                  onPressed: () => Navigator.pushNamed(
-                    context,
-                    RoutesName.simulationEvaluation,
-                    arguments: context.read<InterviewCubit>(),
-                  ),
+                  onPressed: () {
+                    unawaited(context.read<QuestionAudioCubit>().stop());
+                    Navigator.pushNamed(
+                      context,
+                      RoutesName.simulationEvaluation,
+                      arguments: context.read<InterviewCubit>(),
+                    );
+                  },
                 ),
               ),
             ],
@@ -325,7 +365,23 @@ void _applyTranscript(
   );
 }
 
+Future<void> _startVoiceAnswer(
+  BuildContext context, {
+  required String questionId,
+  required String? languageCode,
+}) async {
+  final audio = context.read<QuestionAudioCubit>();
+  final speech = context.read<SpeechInputCubit>();
+  await audio.suspendForRecording();
+  if (!context.mounted) return;
+  await speech.start(
+    questionId: questionId,
+    languageCode: languageCode ?? Localizations.localeOf(context).languageCode,
+  );
+}
+
 Future<void> _confirmFinish(BuildContext context) async {
+  unawaited(context.read<QuestionAudioCubit>().stop());
   unawaited(context.read<SpeechInputCubit>().interrupt());
   final cubit = context.read<InterviewCubit>();
   final phase = cubit.state.phase;

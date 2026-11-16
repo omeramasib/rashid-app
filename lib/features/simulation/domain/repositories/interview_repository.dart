@@ -6,6 +6,7 @@ import '../entities/interview_finish_result.dart';
 import '../entities/interview_report.dart';
 import '../entities/interview_simulation_history.dart';
 import '../entities/interview_start_response.dart';
+import '../entities/question_audio.dart';
 import '../entities/simulation_history_count.dart';
 
 abstract class InterviewRepository {
@@ -44,6 +45,10 @@ abstract class InterviewRepository {
   );
 
   Future<Either<Failure, InterviewReport>> getReport(String simulationId);
+
+  Future<Either<Failure, QuestionAudio>> getQuestionAudio(String questionId);
+
+  void cancelQuestionAudio();
 
   Future<Either<Failure, List<InterviewSimulationHistory>>>
       getSimulationsHistory();

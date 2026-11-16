@@ -341,5 +341,12 @@
     "speech_interrupted": "Recording was interrupted. Tap the microphone to try again.",
     "speech_network": "Speech recognition needs a connection on this device. Check your connection and try again.",
     "speech_error_generic": "Speech recognition failed. You can try again or type your answer.",
-    "speech_dismiss": "Dismiss"
+    "speech_dismiss": "Dismiss",
+    "question_audio_preparing": "Preparing audio",
+    "question_audio_play": "Play question",
+    "question_audio_pause": "Pause question",
+    "question_audio_resume": "Resume question",
+    "question_audio_replay": "Replay question",
+    "question_audio_retry": "Retry audio",
+    "question_audio_unavailable": "Audio unavailable"
 }

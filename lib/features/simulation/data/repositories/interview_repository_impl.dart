@@ -7,6 +7,7 @@ import '../../domain/entities/interview_finish_result.dart';
 import '../../domain/entities/interview_report.dart';
 import '../../domain/entities/interview_simulation_history.dart';
 import '../../domain/entities/interview_start_response.dart';
+import '../../domain/entities/question_audio.dart';
 import '../../domain/entities/simulation_history_count.dart';
 import '../../domain/failures/interview_start_failure.dart';
 import '../../domain/repositories/interview_repository.dart';
@@ -116,6 +117,23 @@ class InterviewRepositoryImpl implements InterviewRepository {
       return Left(ServerFailure(error.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, QuestionAudio>> getQuestionAudio(
+    String questionId,
+  ) async {
+    try {
+      final response = await remoteDataSource.getQuestionAudio(questionId);
+      return Right(response);
+    } on AppException catch (error) {
+      return Left(_mapExceptionToFailure(error));
+    } catch (error) {
+      return Left(ServerFailure(error.toString()));
+    }
+  }
+
+  @override
+  void cancelQuestionAudio() => remoteDataSource.cancelQuestionAudio();
 
   @override
   Future<Either<Failure, InterviewReport>> getReport(

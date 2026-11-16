@@ -12,6 +12,8 @@ import '../ads/interstitial_ad_service.dart';
 import '../localization/localization_bloc.dart';
 import '../speech/microphone_permission_service.dart';
 import '../speech/speech_recognition_service.dart';
+import '../audio/just_audio_question_engine.dart';
+import '../audio/question_audio_player.dart';
 import '../speech/speech_to_text_service.dart';
 import '../network/dio_client.dart';
 import '../auth/clerk_auth_service.dart';
@@ -65,6 +67,7 @@ import '../../features/simulation/data/datasources/interview_remote_datasource.d
 import '../../features/simulation/data/repositories/interview_repository_impl.dart';
 import '../../features/simulation/domain/repositories/interview_repository.dart';
 import '../../features/simulation/domain/usecases/finish_interview_usecase.dart';
+import '../../features/simulation/domain/usecases/get_question_audio_usecase.dart';
 import '../../features/simulation/domain/usecases/retry_interview_generation_usecase.dart';
 import '../../features/simulation/domain/usecases/get_interview_report_usecase.dart';
 import '../../features/simulation/domain/usecases/get_simulation_history_count_usecase.dart';
@@ -74,6 +77,7 @@ import '../../features/simulation/domain/usecases/start_interview_by_job_usecase
 import '../../features/simulation/domain/usecases/submit_answer_usecase.dart';
 import '../../features/simulation/presentation/cubit/interview_cubit.dart';
 import '../../features/simulation/presentation/cubit/interview_entry_cubit.dart';
+import '../../features/simulation/presentation/cubit/question_audio_cubit.dart';
 import '../../features/simulation/presentation/cubit/speech_input_cubit.dart';
 import '../../features/performance/data/datasources/performance_remote_datasource.dart';
 import '../../features/performance/data/repositories/performance_repository_impl.dart';
@@ -260,6 +264,19 @@ Future<void> init() async {
       foreground: sl(),
     ),
   );
+  sl.registerFactory(
+    () => QuestionAudioCubit(
+      getQuestionAudio: sl(),
+      player: sl(),
+      foreground: sl(),
+    ),
+  );
+  sl.registerFactory<QuestionAudioPlayer>(
+    () => CoordinatedQuestionAudioPlayer(
+      engine: JustAudioQuestionEngine(),
+      session: PluginInterviewAudioSession(),
+    ),
+  );
 
   // Usecases
   sl.registerLazySingleton(() => StartInterviewByJobUseCase(sl()));
@@ -268,6 +285,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SubmitAnswerUseCase(sl()));
   sl.registerLazySingleton(() => FinishInterviewUseCase(sl()));
   sl.registerLazySingleton(() => GetInterviewReportUseCase(sl()));
+  sl.registerLazySingleton(() => GetQuestionAudioUseCase(sl()));
   sl.registerLazySingleton(() => GetSimulationsHistoryUseCase(sl()));
   sl.registerLazySingleton(() => GetSimulationHistoryCountUseCase(sl()));
 

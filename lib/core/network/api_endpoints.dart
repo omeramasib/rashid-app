@@ -51,4 +51,7 @@ class ApiEndpoints {
 
   static String interviewRetry(String simulationId) =>
       '/api/v1/interview/simulations/$simulationId/retry';
+
+  static String interviewQuestionAudio(String questionId) =>
+      '/api/v1/interview/questions/${Uri.encodeComponent(questionId)}/audio';
 }
