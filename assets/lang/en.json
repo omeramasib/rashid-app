@@ -348,5 +348,6 @@
     "question_audio_resume": "Resume question",
     "question_audio_replay": "Replay question",
     "question_audio_retry": "Retry audio",
-    "question_audio_unavailable": "Audio unavailable"
+    "question_audio_unavailable": "Audio unavailable",
+    "question_audio_limited": "Audio is limited right now. You can try again when the limit resets."
 }

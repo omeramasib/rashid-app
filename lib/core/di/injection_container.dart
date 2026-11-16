@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:get_it/get_it.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../ads/ad_consent_service.dart';
 import '../ads/ad_frequency_cap.dart';
@@ -14,6 +15,7 @@ import '../speech/microphone_permission_service.dart';
 import '../speech/speech_recognition_service.dart';
 import '../audio/just_audio_question_engine.dart';
 import '../audio/question_audio_player.dart';
+import '../audio/question_audio_telemetry.dart';
 import '../speech/speech_to_text_service.dart';
 import '../network/dio_client.dart';
 import '../auth/clerk_auth_service.dart';
@@ -64,6 +66,7 @@ import '../../features/cv/domain/usecases/update_skills_usecase.dart';
 import '../../features/cv/domain/usecases/upload_cv_usecase.dart';
 import '../../features/cv/presentation/cubit/cv_cubit.dart';
 import '../../features/simulation/data/datasources/interview_remote_datasource.dart';
+import '../../features/simulation/data/datasources/question_audio_cache.dart';
 import '../../features/simulation/data/repositories/interview_repository_impl.dart';
 import '../../features/simulation/domain/repositories/interview_repository.dart';
 import '../../features/simulation/domain/usecases/finish_interview_usecase.dart';
@@ -269,6 +272,7 @@ Future<void> init() async {
       getQuestionAudio: sl(),
       player: sl(),
       foreground: sl(),
+      telemetry: sl(),
     ),
   );
   sl.registerFactory<QuestionAudioPlayer>(
@@ -291,10 +295,19 @@ Future<void> init() async {
 
   // Repository
   sl.registerLazySingleton<InterviewRepository>(
-    () => InterviewRepositoryImpl(remoteDataSource: sl()),
+    () => InterviewRepositoryImpl(
+      remoteDataSource: sl(),
+      audioCache: sl(),
+    ),
   );
 
   // Data sources
+  sl.registerLazySingleton<QuestionAudioCache>(
+    () => FileQuestionAudioCache(directory: getTemporaryDirectory),
+  );
+  sl.registerLazySingleton<QuestionAudioTelemetry>(
+    () => FirebaseQuestionAudioTelemetry(),
+  );
   sl.registerLazySingleton<InterviewRemoteDataSource>(
     () => InterviewRemoteDataSourceImpl(client: sl()),
   );

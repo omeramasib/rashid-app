@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import '../error/exceptions.dart';
 
@@ -45,8 +48,7 @@ class ResponseInterceptor extends Interceptor {
 
     final response = err.response;
     final code = response?.statusCode;
-    final body = response?.data;
-    final parsed = _apiError(body, err.message ?? 'Unknown error');
+    final parsed = _apiError(response?.data, err.message ?? 'Unknown error');
     final message = parsed.message;
 
     switch (code) {
@@ -75,7 +77,20 @@ class ResponseInterceptor extends Interceptor {
       case 422:
         handler.reject(_reject(err, ValidationException(message)));
       case 429:
-        handler.reject(_reject(err, RateLimitException(message)));
+        handler.reject(_reject(
+          err,
+          RateLimitException(
+            message,
+            code: parsed.code,
+            retryAfter: retryAfterFromHeader(
+              response?.headers.value('retry-after'),
+            ),
+          ),
+        ));
+      case 500:
+        handler.reject(
+          _reject(err, ServerException(ServerException.readableMessage)),
+        );
       case 502:
         handler.reject(_reject(err, UpstreamException(message)));
       case 503:
@@ -99,8 +114,9 @@ class ResponseInterceptor extends Interceptor {
 
   // ── HELPERS ──────────────────────────────────────────────────────────────────
   _ApiError _apiError(dynamic body, String fallback) {
-    if (body is Map) {
-      final raw = body['detail'] ?? body['message'] ?? body['error'];
+    final decoded = _jsonBody(body);
+    if (decoded is Map) {
+      final raw = decoded['detail'] ?? decoded['message'] ?? decoded['error'];
       if (raw is Map) {
         final code = raw['code'] is String ? raw['code'] as String : null;
         final postUrl =
@@ -124,12 +140,43 @@ class ResponseInterceptor extends Interceptor {
     return _ApiError(fallback);
   }
 
+  /// Byte responses keep error JSON as bytes. Decode it before mapping.
+  dynamic _jsonBody(dynamic body) {
+    if (body is! List<int>) return body;
+    try {
+      final decoded = jsonDecode(utf8.decode(body));
+      return decoded;
+    } catch (_) {
+      return null;
+    }
+  }
+
   DioException _reject(DioException original, Exception error) => DioException(
         requestOptions: original.requestOptions,
         response: original.response,
         type: original.type,
         error: error,
       );
+}
+
+/// `Retry-After` as delta-seconds or an HTTP date. Unknown values are ignored.
+Duration? retryAfterFromHeader(String? raw, {DateTime? now}) {
+  if (raw == null) return null;
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return null;
+  final seconds = int.tryParse(trimmed);
+  if (seconds != null) {
+    if (seconds <= 0) return Duration.zero;
+    return Duration(seconds: seconds);
+  }
+  try {
+    final when = HttpDate.parse(trimmed);
+    final delta = when.difference((now ?? DateTime.now()).toUtc());
+    if (delta.isNegative) return Duration.zero;
+    return delta;
+  } catch (_) {
+    return null;
+  }
 }
 
 class _ApiError {

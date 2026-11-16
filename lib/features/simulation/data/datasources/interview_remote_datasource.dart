@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../../../../core/error/exceptions.dart';
@@ -44,7 +46,10 @@ abstract class InterviewRemoteDataSource {
 
   Future<InterviewReportModel> getReport(String simulationId);
 
-  Future<QuestionAudioModel> getQuestionAudio(String questionId);
+  Future<Uint8List> downloadQuestionAudio(
+    String questionId, {
+    CancelToken? cancelToken,
+  });
 
   void cancelQuestionAudio();
 
@@ -58,9 +63,11 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
 
   /// Question generation waits on the provider, which may retry once.
   static const Duration aiReceiveTimeout = Duration(seconds: 150);
-  static const Duration audioReceiveTimeout = Duration(seconds: 15);
 
-  CancelToken? _questionAudioCancel;
+  /// Direct TTS can take longer than a metadata poll. It is not retried.
+  static const Duration audioReceiveTimeout = Duration(seconds: 60);
+
+  final Set<CancelToken> _questionAudioTokens = {};
 
   InterviewRemoteDataSourceImpl({required this.client});
 
@@ -85,6 +92,7 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
       'language': language,
       'simulation_type': simulationType,
       'num_questions': numQuestions,
+      'audio_delivery': 'direct',
       if (cvId != null) 'cv_id': cvId,
     });
   }
@@ -106,6 +114,7 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
       'language': language,
       'simulation_type': simulationType,
       'num_questions': numQuestions,
+      'audio_delivery': 'direct',
       if (cvId != null) 'cv_id': cvId,
     });
   }
@@ -114,17 +123,23 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
   Future<InterviewStartResponseModel> retryGeneration(
     String simulationId,
   ) {
-    return _start(ApiEndpoints.interviewRetry(simulationId), const {});
+    return _start(
+      ApiEndpoints.interviewRetry(simulationId),
+      const {},
+      queryParameters: const {'audio_delivery': 'direct'},
+    );
   }
 
   Future<InterviewStartResponseModel> _start(
     String path,
-    Map<String, dynamic> body,
-  ) async {
+    Map<String, dynamic> body, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
     try {
       final response = await _dio.post(
         path,
         data: body.isEmpty ? null : body,
+        queryParameters: queryParameters,
         options: _aiOptions,
       );
       return InterviewStartResponseModel.fromJson(
@@ -184,38 +199,63 @@ class InterviewRemoteDataSourceImpl implements InterviewRemoteDataSource {
   }
 
   @override
-  Future<QuestionAudioModel> getQuestionAudio(String questionId) async {
-    cancelQuestionAudio();
-    final cancelToken = CancelToken();
-    _questionAudioCancel = cancelToken;
+  Future<Uint8List> downloadQuestionAudio(
+    String questionId, {
+    CancelToken? cancelToken,
+  }) async {
+    final token = cancelToken ?? CancelToken();
+    _questionAudioTokens.add(token);
+    var tooLarge = false;
     try {
-      final response = await _dio.get(
-        ApiEndpoints.interviewQuestionAudio(questionId),
-        cancelToken: cancelToken,
-        options: Options(receiveTimeout: audioReceiveTimeout),
+      final response = await _dio.get<List<int>>(
+        ApiEndpoints.interviewQuestionAudioDirect(questionId),
+        cancelToken: token,
+        onReceiveProgress: (received, total) {
+          final overCap = received > maxQuestionAudioBytes ||
+              (total > 0 && total > maxQuestionAudioBytes);
+          if (!overCap || token.isCancelled) return;
+          tooLarge = true;
+          token.cancel('question audio too large');
+        },
+        options: Options(
+          responseType: ResponseType.bytes,
+          receiveTimeout: audioReceiveTimeout,
+          headers: const {'Accept': 'audio/wav'},
+        ),
       );
-      final data = response.data;
-      if (data is! Map) {
-        throw ServerException('Malformed question audio');
+      if (response.statusCode != 200) {
+        throw UpstreamException('Invalid question audio');
       }
-      return QuestionAudioModel.fromJson(Map<String, dynamic>.from(data));
+      final bytes = _asBytes(response.data);
+      final contentType = response.headers.value(Headers.contentTypeHeader);
+      if (!isPlayableWav(bytes, contentType: contentType)) {
+        throw UpstreamException('Invalid question audio');
+      }
+      return bytes;
     } on DioException catch (error) {
+      if (tooLarge) throw UpstreamException('Invalid question audio');
       throw _exception(error);
-    } on FormatException {
-      throw ServerException('Malformed question audio');
+    } on AppException {
+      rethrow;
     } catch (error) {
-      if (error is AppException) rethrow;
       throw ServerException(error.toString());
+    } finally {
+      _questionAudioTokens.remove(token);
     }
   }
 
   @override
   void cancelQuestionAudio() {
-    final token = _questionAudioCancel;
-    _questionAudioCancel = null;
-    if (token != null && !token.isCancelled) {
-      token.cancel('question audio superseded');
+    for (final token in _questionAudioTokens.toList()) {
+      if (!token.isCancelled) token.cancel('question audio cancelled');
     }
+    _questionAudioTokens.clear();
+  }
+
+  Uint8List _asBytes(Object? data) {
+    if (data is Uint8List) return data;
+    if (data is List<int>) return Uint8List.fromList(data);
+    return Uint8List(0);
   }
 
   @override

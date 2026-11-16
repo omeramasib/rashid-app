@@ -1,15 +1,41 @@
+import 'dart:typed_data';
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rashed_app/core/error/exceptions.dart';
 import 'package:rashed_app/core/error/failures.dart';
 import 'package:rashed_app/features/simulation/data/datasources/interview_remote_datasource.dart';
-import 'package:rashed_app/features/simulation/data/models/question_audio_model.dart';
+import 'package:rashed_app/features/simulation/data/datasources/question_audio_cache.dart';
 import 'package:rashed_app/features/simulation/data/repositories/interview_repository_impl.dart';
-import 'package:rashed_app/features/simulation/domain/entities/question_audio.dart';
+import 'package:rashed_app/features/simulation/domain/entities/interview_question.dart';
 import 'package:rashed_app/features/simulation/domain/failures/interview_start_failure.dart';
 
 class MockSource extends Mock implements InterviewRemoteDataSource {}
+
+class _IdleCache implements QuestionAudioCache {
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<void> evict(String fileName) async {}
+
+  @override
+  String fileName({
+    required String questionId,
+    required String questionText,
+    String? model,
+    String? voice,
+    String? format,
+  }) =>
+      'unused.wav';
+
+  @override
+  Future<String?> validPath(String fileName) async => null;
+
+  @override
+  Future<int> write(String fileName, Uint8List bytes) async => 0;
+}
 
 void main() {
   late MockSource source;
@@ -17,7 +43,10 @@ void main() {
 
   setUp(() {
     source = MockSource();
-    repository = InterviewRepositoryImpl(remoteDataSource: source);
+    repository = InterviewRepositoryImpl(
+      remoteDataSource: source,
+      audioCache: _IdleCache(),
+    );
   });
 
   test('preserves the failed simulation id and the original failure', () async {
@@ -110,44 +139,49 @@ void main() {
   });
 
   test('keeps question audio failures distinct', () async {
-    when(() => source.getQuestionAudio(any())).thenThrow(
+    const question = InterviewQuestion(id: 'q-1', questionText: 'Hello there');
+    when(() => source.downloadQuestionAudio(any())).thenThrow(
       UnauthorizedException('Could not validate credentials'),
     );
-    final unauthorized = await repository.getQuestionAudio('q-1');
+    final unauthorized = await repository.getQuestionAudio(question);
     expect(
       unauthorized.fold((failure) => failure, (_) => null),
       isA<UnauthorizedFailure>(),
     );
 
-    when(() => source.getQuestionAudio(any())).thenThrow(
+    when(() => source.downloadQuestionAudio(any())).thenThrow(
       NotFoundException('Question not found'),
     );
-    final missing = await repository.getQuestionAudio('q-1');
+    final missing = await repository.getQuestionAudio(question);
     expect(missing.fold((failure) => failure, (_) => null),
         isA<NotFoundFailure>());
 
-    when(() => source.getQuestionAudio(any())).thenThrow(
+    when(() => source.downloadQuestionAudio(any())).thenThrow(
       ServiceUnavailableException('Question audio is temporarily unavailable'),
     );
-    final unavailable = await repository.getQuestionAudio('q-1');
+    final unavailable = await repository.getQuestionAudio(question);
     expect(
       unavailable.fold((failure) => failure, (_) => null),
       isA<ServiceUnavailableFailure>(),
     );
 
-    when(() => source.getQuestionAudio(any())).thenAnswer(
-      (_) async => const QuestionAudioModel(
-        questionId: 'q-1',
-        status: QuestionAudioStatus.ready,
-        audioUrl: 'https://example.test/a.wav',
-        mimeType: 'audio/wav',
-        expiresInSeconds: 300,
+    when(() => source.downloadQuestionAudio(any())).thenThrow(
+      RateLimitException(
+        'AI spending limit reached',
+        code: 'spending_limit',
+        retryAfter: const Duration(seconds: 3),
       ),
     );
-    final ready = await repository.getQuestionAudio('q-1');
+    final limited = await repository.getQuestionAudio(question);
     expect(
-      ready.fold((_) => null, (audio) => audio.status),
-      QuestionAudioStatus.ready,
+      limited.fold((failure) => failure, (_) => null),
+      isA<RateLimitFailure>()
+          .having((failure) => failure.code, 'code', 'spending_limit')
+          .having(
+            (failure) => failure.retryAfter,
+            'retryAfter',
+            const Duration(seconds: 3),
+          ),
     );
   });
 }

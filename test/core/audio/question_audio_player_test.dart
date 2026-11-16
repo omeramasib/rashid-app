@@ -28,14 +28,14 @@ void main() {
       engine: engine,
       session: session,
     );
-    var current = true;
-    session.activateGate = Completer<void>();
+    final gate = Completer<void>();
+    session.activateGate = gate;
 
     final playing = player.play(stillCurrent: () => current);
     await Future<void>.delayed(Duration.zero);
     current = false;
     final suspending = player.suspendForCapture();
-    session.activateGate!.complete();
+    gate.complete();
     await playing;
     await suspending;
 
@@ -46,6 +46,18 @@ void main() {
       lessThan(log.indexOf('release')),
     );
     expect(log, isNot(contains('play')));
+  });
+
+  test('load does not activate the audio session', () async {
+    final log = <String>[];
+    final player = CoordinatedQuestionAudioPlayer(
+      engine: _FakeEngine(log),
+      session: _FakeSession(log),
+    );
+
+    await player.load('/tmp/question.wav');
+
+    expect(log, ['load']);
   });
 }
 
@@ -59,7 +71,9 @@ class _FakeEngine implements QuestionAudioEngine {
   Stream<QuestionAudioPlayerSignal> get signals => const Stream.empty();
 
   @override
-  Future<void> load(String url) async {}
+  Future<void> load(String filePath) async {
+    log.add('load');
+  }
 
   @override
   Future<void> play() async {

@@ -26,8 +26,8 @@ class JustAudioQuestionEngine implements QuestionAudioEngine {
   Stream<QuestionAudioPlayerSignal> get signals => _signals.stream;
 
   @override
-  Future<void> load(String url) async {
-    await _player.setUrl(url);
+  Future<void> load(String filePath) async {
+    await _player.setFilePath(filePath);
   }
 
   @override

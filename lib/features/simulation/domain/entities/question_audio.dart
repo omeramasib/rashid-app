@@ -16,39 +16,37 @@ enum QuestionAudioStatus {
   }
 }
 
-/// Speech metadata returned by the question-audio endpoint.
-class QuestionAudio extends Equatable {
-  const QuestionAudio({
+/// Where a playable file came from for this activation.
+enum QuestionAudioSource { cold, cache, prefetch }
+
+/// A validated WAV already stored on disk.
+class QuestionAudioFile extends Equatable {
+  const QuestionAudioFile({
     required this.questionId,
-    required this.status,
-    this.audioUrl,
-    this.mimeType,
-    this.durationMs,
-    this.expiresInSeconds,
+    required this.filePath,
+    required this.bytes,
+    required this.source,
+    this.httpMs = 0,
+    this.cacheWriteMs = 0,
   });
 
   final String questionId;
-  final QuestionAudioStatus status;
-  final String? audioUrl;
-  final String? mimeType;
-  final int? durationMs;
-  final int? expiresInSeconds;
+  final String filePath;
+  final int bytes;
+  final QuestionAudioSource source;
+  final int httpMs;
+  final int cacheWriteMs;
 
   @override
-  List<Object?> get props => [
-        questionId,
-        status,
-        audioUrl,
-        mimeType,
-        durationMs,
-        expiresInSeconds,
-      ];
+  List<Object?> get props =>
+      [questionId, filePath, bytes, source, httpMs, cacheWriteMs];
 }
 
 /// Optional audio block embedded in an interview question.
 ///
 /// Older start responses omit it. A missing or unrecognized block stays null
-/// so question text still loads.
+/// so question text still loads. Direct audio honors only
+/// [QuestionAudioStatus.disabled].
 class QuestionAudioHint extends Equatable {
   const QuestionAudioHint({
     required this.status,

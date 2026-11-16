@@ -7,7 +7,7 @@ enum QuestionAudioPlayerSignal { started, paused, completed, failed }
 abstract class QuestionAudioPlayer {
   Stream<QuestionAudioPlayerSignal> get signals;
 
-  Future<void> load(String url);
+  Future<void> load(String filePath);
 
   /// Starts or resumes playback.
   ///
@@ -31,7 +31,7 @@ abstract class QuestionAudioPlayer {
 abstract class QuestionAudioEngine {
   Stream<QuestionAudioPlayerSignal> get signals;
 
-  Future<void> load(String url);
+  Future<void> load(String filePath);
 
   Future<void> play();
 
@@ -71,11 +71,8 @@ class CoordinatedQuestionAudioPlayer implements QuestionAudioPlayer {
   Stream<QuestionAudioPlayerSignal> get signals => _engine.signals;
 
   @override
-  Future<void> load(String url) {
-    return _lock(() async {
-      await _session.activateForPlayback();
-      await _engine.load(url);
-    });
+  Future<void> load(String filePath) {
+    return _lock(() => _engine.load(filePath));
   }
 
   @override

@@ -20,6 +20,9 @@ enum QuestionAudioIssue {
   temporary,
   unavailable,
   sessionExpired,
+
+  /// HTTP 429. Rate limit and spending limit are not distinguishable.
+  limited,
 }
 
 class QuestionAudioState extends Equatable {
@@ -29,6 +32,7 @@ class QuestionAudioState extends Equatable {
     this.playback = QuestionPlaybackStatus.idle,
     this.issue = QuestionAudioIssue.none,
     this.deferred = false,
+    this.retryLocked = false,
   });
 
   final String? questionId;
@@ -39,11 +43,15 @@ class QuestionAudioState extends Equatable {
   /// An answered question has not requested audio yet.
   final bool deferred;
 
+  /// A 429 `Retry-After` window is still open. No request is sent.
+  final bool retryLocked;
+
   QuestionAudioState copyWith({
     QuestionAudioStatus? backend,
     QuestionPlaybackStatus? playback,
     QuestionAudioIssue? issue,
     bool? deferred,
+    bool? retryLocked,
     bool clearBackend = false,
   }) {
     return QuestionAudioState(
@@ -52,9 +60,11 @@ class QuestionAudioState extends Equatable {
       playback: playback ?? this.playback,
       issue: issue ?? this.issue,
       deferred: deferred ?? this.deferred,
+      retryLocked: retryLocked ?? this.retryLocked,
     );
   }
 
   @override
-  List<Object?> get props => [questionId, backend, playback, issue, deferred];
+  List<Object?> get props =>
+      [questionId, backend, playback, issue, deferred, retryLocked];
 }

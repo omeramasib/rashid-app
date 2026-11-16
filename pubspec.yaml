@@ -35,6 +35,7 @@ dependencies:
   firebase_crashlytics: ^5.4.1
   firebase_analytics: ^12.6.1
   firebase_performance: ^0.11.7
+  path_provider: 2.1.5
   speech_to_text: ^7.4.0
   # 13.x depends on permission_handler_android 14, whose Gradle script
   # requires a Kotlin plugin this project does not apply. 12.0.3 builds

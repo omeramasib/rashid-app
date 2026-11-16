@@ -93,7 +93,20 @@ class ValidationFailure extends Failure {
 }
 
 class RateLimitFailure extends Failure {
-  const RateLimitFailure(super.message);
+  final Duration? retryAfter;
+
+  /// Present only when the response body included a machine-readable code.
+  /// Not used to guess rate limit versus spending limit.
+  final String? code;
+
+  const RateLimitFailure(super.message, {this.retryAfter, this.code});
+
+  @override
+  List<Object> get props => [
+        message,
+        code ?? '',
+        retryAfter?.inMilliseconds ?? -1,
+      ];
 }
 
 class ServiceUnavailableFailure extends Failure {

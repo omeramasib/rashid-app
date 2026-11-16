@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:dartz/dartz.dart';
 import 'package:rashed_app/core/audio/question_audio_player.dart';
+import 'package:rashed_app/core/audio/question_audio_telemetry.dart';
 import 'package:rashed_app/core/error/failures.dart';
+import 'package:rashed_app/features/simulation/domain/entities/interview_question.dart';
 import 'package:rashed_app/features/simulation/domain/entities/question_audio.dart';
 import 'package:rashed_app/features/simulation/domain/repositories/interview_repository.dart';
 import 'package:rashed_app/features/simulation/domain/usecases/get_question_audio_usecase.dart';
@@ -11,22 +13,40 @@ import 'package:rashed_app/features/simulation/presentation/cubit/question_audio
 class ScriptedQuestionAudioApi implements GetQuestionAudioUseCase {
   ScriptedQuestionAudioApi(this.handler);
 
-  final Future<Either<Failure, QuestionAudio>> Function(String questionId)
-      handler;
+  final Future<Either<Failure, QuestionAudioFile>> Function(
+    GetQuestionAudioParams params,
+  ) handler;
   final calls = <String>[];
+  final prefetches = <String>[];
+  final evicted = <String>[];
   int cancels = 0;
+  int discards = 0;
 
   @override
   InterviewRepository get repository => throw UnimplementedError();
 
   @override
-  Future<Either<Failure, QuestionAudio>> call(GetQuestionAudioParams params) {
-    calls.add(params.questionId);
-    return handler(params.questionId);
+  Future<Either<Failure, QuestionAudioFile>> call(
+    GetQuestionAudioParams params,
+  ) {
+    calls.add(params.question.id);
+    if (params.prefetch) prefetches.add(params.question.id);
+    return handler(params);
+  }
+
+  @override
+  Future<void> evict(InterviewQuestion question) async {
+    evicted.add(question.id);
   }
 
   @override
   void cancel() => cancels++;
+
+  @override
+  Future<void> discard() async {
+    discards++;
+    cancel();
+  }
 }
 
 class FakeQuestionAudioPlayer implements QuestionAudioPlayer {
@@ -47,14 +67,14 @@ class FakeQuestionAudioPlayer implements QuestionAudioPlayer {
   void emit(QuestionAudioPlayerSignal signal) => _signals.add(signal);
 
   @override
-  Future<void> load(String url) async {
+  Future<void> load(String filePath) async {
     final gate = loadGate;
     if (gate != null) await gate.future;
     if (failLoads > 0) {
       failLoads--;
       throw StateError('unplayable');
     }
-    loads.add(url);
+    loads.add(filePath);
   }
 
   @override
@@ -92,30 +112,76 @@ class FakeQuestionAudioPlayer implements QuestionAudioPlayer {
   }
 }
 
-QuestionAudio readyQuestionAudio(
+class RecordingQuestionAudioTelemetry implements QuestionAudioTelemetry {
+  final events = <String>[];
+  int open = 0;
+  QuestionAudioSource? lastSource;
+  int? lastHttpMs;
+  int? lastPrepareMs;
+  int? lastBytes;
+  int? lastReadyMs;
+  bool throwOnReady = false;
+
+  @override
+  void activationStarted() {
+    open++;
+    events.add('begin');
+  }
+
+  @override
+  void ready({
+    required QuestionAudioSource source,
+    required int timeToReadyMs,
+    required int httpMs,
+    required int cacheWriteMs,
+    required int prepareMs,
+    required int bytes,
+  }) {
+    if (throwOnReady) throw StateError('telemetry down');
+    open--;
+    lastSource = source;
+    lastHttpMs = httpMs;
+    lastPrepareMs = prepareMs;
+    lastBytes = bytes;
+    lastReadyMs = timeToReadyMs;
+    events.add('ready:${source.name}');
+  }
+
+  @override
+  void failed({required String category, required int elapsedMs}) {
+    open--;
+    events.add('failed:$category');
+  }
+
+  @override
+  void cancelled({required int elapsedMs}) {
+    open--;
+    events.add('cancelled');
+  }
+}
+
+QuestionAudioFile readyQuestionAudio(
   String questionId, {
-  String url = 'https://example.test/question.wav',
-  int expiresInSeconds = 300,
+  QuestionAudioSource source = QuestionAudioSource.cold,
+  String? path,
+  int httpMs = 40,
+  int bytes = 128,
 }) {
-  return QuestionAudio(
+  return QuestionAudioFile(
     questionId: questionId,
-    status: QuestionAudioStatus.ready,
-    audioUrl: url,
-    mimeType: 'audio/wav',
-    durationMs: 3280,
-    expiresInSeconds: expiresInSeconds,
+    filePath: path ?? '/tmp/$questionId.wav',
+    bytes: bytes,
+    source: source,
+    httpMs: httpMs,
+    cacheWriteMs: source == QuestionAudioSource.cache ? 0 : 5,
   );
 }
 
-QuestionAudio statusAudio(String questionId, QuestionAudioStatus status) {
-  return QuestionAudio(questionId: questionId, status: status);
-}
-
-/// Resolves immediately so existing screens can render without polling.
+/// Resolves immediately so existing screens can render without a download.
 QuestionAudioCubit idleQuestionAudioCubit() {
   return QuestionAudioCubit(
     getQuestionAudio: ScriptedQuestionAudioApi(
-      (questionId) async => Right(readyQuestionAudio(questionId)),
+      (params) async => Right(readyQuestionAudio(params.question.id)),
     ),
     player: FakeQuestionAudioPlayer(),
   );

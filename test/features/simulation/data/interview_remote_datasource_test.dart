@@ -57,6 +57,26 @@ void main() {
     });
   }
 
+  void respondBytes(
+    Uint8List bytes, {
+    String contentType = 'audio/wav',
+    int status = 200,
+  }) {
+    dio.interceptors
+      ..clear()
+      ..add(ResponseInterceptor());
+    dio.httpClientAdapter = _ScriptedAdapter((options) {
+      request = options;
+      return Future.value(ResponseBody.fromBytes(
+        bytes,
+        status,
+        headers: {
+          Headers.contentTypeHeader: [contentType],
+        },
+      ));
+    });
+  }
+
   Map<String, dynamic> startedBody() {
     return {
       'status': 'success',
@@ -99,6 +119,7 @@ void main() {
       'language': 'English',
       'simulation_type': 'text',
       'num_questions': 5,
+      'audio_delivery': 'direct',
       'cv_id': 'cv-1',
     });
 
@@ -127,6 +148,7 @@ void main() {
 
     expect(request?.path, ApiEndpoints.interviewStartByJobDesc);
     expect(request?.data['job_description'], contains('clinical'));
+    expect(request?.data['audio_delivery'], 'direct');
     expect((request?.data as Map).containsKey('cv_id'), isFalse);
     expect(response.questions.single.id, 'q-1');
   });
@@ -324,30 +346,44 @@ void main() {
     expect(request?.headers['Authorization'], 'Bearer access-token');
   });
 
+  test('retry sends audio_delivery as a query parameter', () async {
+    respond(body: startedBody());
+    await source.retryGeneration('sim-1');
+    expect(request?.path, ApiEndpoints.interviewRetry('sim-1'));
+    expect(request?.queryParameters, {'audio_delivery': 'direct'});
+    expect(request?.data, isNull);
+  });
+
   test('reads question audio through the authenticated client', () async {
     final storage = _TokenStorage()..token = 'access-token';
-    respond(body: {
-      'status': 'success',
-      'message': 'Question audio retrieved',
-      'data': {
-        'question_id': 'q 1',
-        'status': 'ready',
-        'audio_url': 'https://example.test/a.wav?signature=secret',
-        'mime_type': 'audio/wav',
-        'duration_ms': 3280,
-        'expires_in_seconds': 300,
-      },
-    });
+    respondBytes(_wavBytes());
     dio.interceptors.insert(0, AuthInterceptor(RashedSession(storage)));
 
-    final audio = await source.getQuestionAudio('q 1');
+    final audio = await source.downloadQuestionAudio('q 1');
 
-    expect(request?.path, ApiEndpoints.interviewQuestionAudio('q 1'));
+    expect(request?.uri.path, endsWith('/audio/direct'));
+    expect(request?.uri.path, isNot(endsWith('/audio')));
     expect(request?.headers['Authorization'], 'Bearer access-token');
-    expect(audio.status, QuestionAudioStatus.ready);
-    expect(audio.audioUrl, contains('signature=secret'));
-    expect(audio.durationMs, 3280);
-    expect(request?.receiveTimeout, const Duration(seconds: 15));
+    expect(request?.headers['Accept'], 'audio/wav');
+    expect(request?.responseType, ResponseType.bytes);
+    expect(request?.receiveTimeout, const Duration(seconds: 60));
+    expect(audio, _wavBytes());
+  });
+
+  test('rejects an invalid wav without calling the legacy audio endpoint',
+      () async {
+    respondBytes(Uint8List.fromList([0, 1, 2, 3]));
+    await expectLater(
+      source.downloadQuestionAudio('q-1'),
+      throwsA(isA<UpstreamException>()),
+    );
+    expect(request?.uri.path, endsWith('/audio/direct'));
+
+    respondBytes(_wavBytes(), contentType: 'audio/mpeg');
+    await expectLater(
+      source.downloadQuestionAudio('q-1'),
+      throwsA(isA<UpstreamException>()),
+    );
   });
 
   test('maps question audio http failures without rewriting them', () async {
@@ -355,38 +391,102 @@ void main() {
       status: 401,
       body: {'detail': 'Could not validate credentials'},
     );
-    expect(
-      source.getQuestionAudio('q-1'),
+    await expectLater(
+      source.downloadQuestionAudio('q-1'),
       throwsA(isA<UnauthorizedException>()),
     );
 
     respond(status: 404, body: {'detail': 'Question not found'});
-    expect(source.getQuestionAudio('q-1'), throwsA(isA<NotFoundException>()));
+    await expectLater(
+      source.downloadQuestionAudio('q-1'),
+      throwsA(isA<NotFoundException>()),
+    );
+
+    respond(
+      status: 429,
+      body: {
+        'detail': {
+          'code': 'spending_limit',
+          'message': 'AI spending limit reached',
+        },
+      },
+      headers: {
+        'retry-after': ['5'],
+      },
+    );
+    await expectLater(
+      source.downloadQuestionAudio('q-1'),
+      throwsA(isA<RateLimitException>()
+          .having((error) => error.code, 'code', 'spending_limit')
+          .having(
+              (error) => error.message, 'message', 'AI spending limit reached')
+          .having((error) => error.retryAfter, 'retryAfter',
+              const Duration(seconds: 5))),
+    );
+
+    respond(status: 429, body: {'detail': 'Rate limit exceeded'});
+    await expectLater(
+      source.downloadQuestionAudio('q-1'),
+      throwsA(isA<RateLimitException>()
+          .having((error) => error.code, 'code', isNull)
+          .having((error) => error.message, 'message', 'Rate limit exceeded')),
+    );
 
     respond(
       status: 503,
       body: {'detail': 'Question audio is temporarily unavailable'},
     );
-    expect(
-      source.getQuestionAudio('q-1'),
+    await expectLater(
+      source.downloadQuestionAudio('q-1'),
       throwsA(isA<ServiceUnavailableException>()),
     );
 
     respond(networkError: DioExceptionType.receiveTimeout);
-    expect(
-      source.getQuestionAudio('q-1'),
+    await expectLater(
+      source.downloadQuestionAudio('q-1'),
       throwsA(isA<RequestTimeoutException>()),
     );
-
-    respond(body: {
-      'status': 'success',
-      'data': {'question_id': 'q-1', 'status': 'ready', 'audio_url': ''},
-    });
-    expect(source.getQuestionAudio('q-1'), throwsA(isA<ServerException>()));
-
-    respond(body: {'status': 'success', 'data': null});
-    expect(source.getQuestionAudio('q-1'), throwsA(isA<ServerException>()));
   });
+}
+
+Uint8List _wavBytes() {
+  final fmt = ByteData(16)
+    ..setUint16(0, 1, Endian.little)
+    ..setUint16(2, 1, Endian.little)
+    ..setUint32(4, 16000, Endian.little)
+    ..setUint32(8, 32000, Endian.little)
+    ..setUint16(12, 2, Endian.little)
+    ..setUint16(14, 16, Endian.little);
+  final data = Uint8List(2);
+  return _wavChunked([
+    _chunk('fmt ', fmt.buffer.asUint8List()),
+    _chunk('data', data),
+  ]);
+}
+
+Uint8List _chunk(String id, Uint8List payload) {
+  final size = ByteData(4)..setUint32(0, payload.length, Endian.little);
+  final bytes = BytesBuilder()
+    ..add(id.codeUnits)
+    ..add(size.buffer.asUint8List())
+    ..add(payload);
+  if (payload.length.isOdd) bytes.addByte(0);
+  return bytes.toBytes();
+}
+
+Uint8List _wavChunked(List<Uint8List> chunks) {
+  final body = BytesBuilder();
+  for (final chunk in chunks) {
+    body.add(chunk);
+  }
+  final payload = body.toBytes();
+  final size = ByteData(4)..setUint32(0, payload.length, Endian.little);
+  return (BytesBuilder()
+        ..add('RIFF'.codeUnits)
+        ..add(size.buffer.asUint8List())
+        ..add('WAVE'.codeUnits)
+        ..add(payload))
+      .toBytes();
 }
 
 class _TokenStorage extends Fake implements SecureStorageService {

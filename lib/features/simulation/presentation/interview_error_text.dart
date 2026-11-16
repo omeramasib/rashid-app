@@ -56,5 +56,6 @@ String? _fallbackKey(Failure failure) {
   if (failure is UpstreamFailure || failure is ServiceUnavailableFailure) {
     return 'interview_err_provider';
   }
+  if (failure is ServerFailure) return 'err_unknown';
   return null;
 }

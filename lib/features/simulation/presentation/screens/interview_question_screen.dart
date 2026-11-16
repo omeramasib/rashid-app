@@ -32,6 +32,10 @@ class InterviewQuestionScreen extends HookWidget {
     final question = state.currentQuestion;
     final savedAnswer =
         question == null ? null : state.submittedAnswers[question.id];
+    final next =
+        question == null || state.currentIndex + 1 >= state.questions.length
+            ? null
+            : state.questions[state.currentIndex + 1];
     final deferAudio =
         question != null && state.evaluations.containsKey(question.id);
     final appliedSession = useRef(0);
@@ -45,9 +49,13 @@ class InterviewQuestionScreen extends HookWidget {
     useEffect(() {
       final current = question;
       if (current == null) return null;
-      audioCubit.showQuestion(current, deferUntilPlay: deferAudio);
+      audioCubit.showQuestion(
+        current,
+        deferUntilPlay: deferAudio,
+        next: next,
+      );
       return null;
-    }, [question?.id, deferAudio]);
+    }, [question?.id, deferAudio, next?.id]);
     useListenable(controller);
 
     return Directionality(

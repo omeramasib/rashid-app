@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rashed_app/features/simulation/data/models/answer_evaluation_model.dart';
 import 'package:rashed_app/features/simulation/data/models/interview_finish_result_model.dart';
@@ -168,59 +170,43 @@ void main() {
     expect(malformed.audio, isNull);
   });
 
-  test('parses each question audio status', () {
-    QuestionAudioModel parse(String status, {String? url, String? mime}) {
-      return QuestionAudioModel.fromJson({
-        'question_id': 'q-1',
-        'status': status,
-        'audio_url': url,
-        'mime_type': mime,
-        'duration_ms': status == 'ready' ? 3280 : null,
-        'expires_in_seconds': status == 'ready' ? 300 : null,
-      });
-    }
-
-    expect(parse('pending').status, QuestionAudioStatus.pending);
-    expect(parse('processing').audioUrl, isNull);
-    expect(parse('failed').status, QuestionAudioStatus.failed);
-    expect(parse('disabled').status, QuestionAudioStatus.disabled);
-    final ready = parse(
-      'ready',
-      url: 'https://example.test/a.wav?signature=secret',
-      mime: 'audio/wav; codecs=1',
+  test('accepts a wav payload and rejects unplayable bytes', () {
+    expect(isPlayableWav(_sampleWav(), contentType: 'audio/wav'), isTrue);
+    expect(isPlayableWav(Uint8List(0), contentType: 'audio/wav'), isFalse);
+    expect(
+      isPlayableWav(_sampleWav(), contentType: 'audio/mpeg'),
+      isFalse,
     );
-    expect(ready.status, QuestionAudioStatus.ready);
-    expect(ready.audioUrl, contains('signature=secret'));
-    expect(ready.mimeType, 'audio/wav; codecs=1');
-    expect(ready.durationMs, 3280);
-    expect(ready.expiresInSeconds, 300);
+    expect(isPlayableWav(Uint8List.fromList([1, 2, 3, 4])), isFalse);
   });
+}
 
-  test('rejects a ready payload that cannot be played', () {
-    expect(
-      () => QuestionAudioModel.fromJson({
-        'question_id': 'q-1',
-        'status': 'ready',
-        'audio_url': '',
-        'mime_type': 'audio/wav',
-      }),
-      throwsFormatException,
-    );
-    expect(
-      () => QuestionAudioModel.fromJson({
-        'question_id': 'q-1',
-        'status': 'ready',
-        'audio_url': 'https://example.test/a.mp3',
-        'mime_type': 'audio/mpeg',
-      }),
-      throwsFormatException,
-    );
-    expect(
-      () => QuestionAudioModel.fromJson({
-        'question_id': 'q-1',
-        'status': 'unknown',
-      }),
-      throwsFormatException,
-    );
-  });
+Uint8List _sampleWav() {
+  final fmt = ByteData(16)
+    ..setUint16(0, 1, Endian.little)
+    ..setUint16(2, 1, Endian.little)
+    ..setUint32(4, 16000, Endian.little)
+    ..setUint32(8, 32000, Endian.little)
+    ..setUint16(12, 2, Endian.little)
+    ..setUint16(14, 16, Endian.little);
+  final fmtBytes = fmt.buffer.asUint8List();
+  final data = Uint8List(2);
+  final chunks = BytesBuilder()
+    ..add('fmt '.codeUnits)
+    ..add(_le32(fmtBytes.length))
+    ..add(fmtBytes)
+    ..add('data'.codeUnits)
+    ..add(_le32(data.length))
+    ..add(data);
+  final payload = chunks.toBytes();
+  return (BytesBuilder()
+        ..add('RIFF'.codeUnits)
+        ..add(_le32(payload.length))
+        ..add('WAVE'.codeUnits)
+        ..add(payload))
+      .toBytes();
+}
+
+Uint8List _le32(int value) {
+  return (ByteData(4)..setUint32(0, value, Endian.little)).buffer.asUint8List();
 }

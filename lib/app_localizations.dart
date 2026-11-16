@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'core/error/exceptions.dart';
+
 class AppLocalizations {
   final Locale? locale;
 
@@ -67,6 +69,7 @@ class AppLocalizations {
     'Unexpected analysis response': 'err_unexpected_analysis',
     'Request cancelled': 'err_request_cancelled',
     'Unknown error': 'err_unknown',
+    ServerException.readableMessage: 'err_unknown',
     'Could not read the saved CV': 'err_cv_read',
     'Could not save the CV on this device': 'err_cv_save',
     'Connection timed out': 'err_timeout',

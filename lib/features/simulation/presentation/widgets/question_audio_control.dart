@@ -34,6 +34,13 @@ class QuestionAudioControl extends StatelessWidget {
     if (state.backend == QuestionAudioStatus.disabled) {
       return const SizedBox.shrink();
     }
+    if (state.issue == QuestionAudioIssue.limited && state.retryLocked) {
+      return _message(
+        context,
+        'question_audio_limited',
+        key: const Key('question_audio_limited'),
+      );
+    }
     if (state.issue == QuestionAudioIssue.sessionExpired) {
       return _message(
         context,
@@ -71,6 +78,7 @@ class QuestionAudioControl extends StatelessWidget {
     if (state.issue == QuestionAudioIssue.timedOut ||
         state.issue == QuestionAudioIssue.temporary ||
         state.issue == QuestionAudioIssue.unavailable ||
+        state.issue == QuestionAudioIssue.limited ||
         state.playback == QuestionPlaybackStatus.error) {
       final unavailable = state.issue == QuestionAudioIssue.unavailable ||
           state.playback == QuestionPlaybackStatus.error ||

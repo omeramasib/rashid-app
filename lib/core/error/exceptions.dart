@@ -17,6 +17,11 @@ class PasswordResetApiException extends AppException {
 }
 
 class ServerException extends AppException {
+  /// Shown for HTTP 500. The response body can be a traceback or an internal
+  /// exception, so it is never used as the message the user sees.
+  static const String readableMessage =
+      'Something went wrong. Please try again.';
+
   ServerException(super.message);
 }
 
@@ -80,8 +85,17 @@ class ValidationException extends AppException {
   ValidationException(super.message);
 }
 
+/// HTTP 429.
+///
+/// Interview audio documents 429 as either a Gemini rate limit or an AI
+/// spending limit. This client has no contract that tells those apart.
+/// [code] is stored only when the JSON body includes one, and callers must
+/// not guess which limit it was. Nothing retries a 429 on its own.
 class RateLimitException extends AppException {
-  RateLimitException(super.message);
+  final Duration? retryAfter;
+  final String? code;
+
+  RateLimitException(super.message, {this.retryAfter, this.code});
 }
 
 class ServiceUnavailableException extends AppException {

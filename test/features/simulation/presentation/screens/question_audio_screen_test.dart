@@ -20,6 +20,7 @@ import 'package:rashed_app/features/simulation/domain/entities/question_audio.da
 import 'package:rashed_app/features/simulation/domain/interview_options.dart';
 import 'package:rashed_app/features/simulation/domain/usecases/finish_interview_usecase.dart';
 import 'package:rashed_app/features/simulation/domain/usecases/get_interview_report_usecase.dart';
+import 'package:rashed_app/features/simulation/domain/usecases/get_question_audio_usecase.dart';
 import 'package:rashed_app/features/simulation/domain/usecases/get_simulations_history_usecase.dart';
 import 'package:rashed_app/features/simulation/domain/usecases/retry_interview_generation_usecase.dart';
 import 'package:rashed_app/features/simulation/domain/usecases/start_interview_by_job_description_usecase.dart';
@@ -85,7 +86,9 @@ void main() {
   late FakeQuestionAudioPlayer player;
   late QuestionAudioCubit audio;
   late SpeechInputCubit speech;
-  late Future<Either<Failure, QuestionAudio>> Function(String id) respond;
+  late Future<Either<Failure, QuestionAudioFile>> Function(
+    GetQuestionAudioParams params,
+  ) respond;
 
   setUpAll(() async {
     for (final code in ['en', 'ar']) {
@@ -127,8 +130,8 @@ void main() {
     profile = _Profile();
     when(() => profile(any())).thenAnswer((_) async => const Right(null));
     when(() => submit(any())).thenAnswer((_) async => const Right(evaluation));
-    respond = (id) async => Right(readyQuestionAudio(id));
-    api = ScriptedQuestionAudioApi((id) => respond(id));
+    respond = (params) async => Right(readyQuestionAudio(params.question.id));
+    api = ScriptedQuestionAudioApi((params) => respond(params));
     player = FakeQuestionAudioPlayer();
     audio = QuestionAudioCubit(getQuestionAudio: api, player: player);
     speech = SpeechInputCubit(
@@ -214,7 +217,7 @@ void main() {
 
   testWidgets('question text renders while audio is still pending',
       (tester) async {
-    final gate = Completer<Either<Failure, QuestionAudio>>();
+    final gate = Completer<Either<Failure, QuestionAudioFile>>();
     respond = (_) => gate.future;
     await start(const [
       InterviewQuestion(id: 'q-1', questionText: 'Tell me about yourself.'),
@@ -237,9 +240,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('question_audio_play')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('question_audio_pause')), findsOneWidget);
-    expect(player.playCalls, 1);
+    await tester.pump();
+    expect(audio.state.playback, QuestionPlaybackStatus.playing);
+    expect(
+      tester.widget<QuestionAudioControl>(find.byType(QuestionAudioControl)).state.playback,
+      QuestionPlaybackStatus.playing,
+    );
 
     await tester.tap(find.byKey(const Key('question_audio_pause')));
     await tester.pumpAndSettle();
@@ -282,12 +288,8 @@ void main() {
     await pump(tester);
     await tester.pumpAndSettle();
 
-    expect(find.text('Audio unavailable'), findsOneWidget);
+    expect(find.text('Tell me about yourself.'), findsOneWidget);
     expect(find.byKey(const Key('interview_answer_input')), findsOneWidget);
-    expect(api.calls, isEmpty);
-
-    await tester.tap(find.byKey(const Key('question_audio_retry')));
-    await tester.pumpAndSettle();
     expect(api.calls, ['q-1']);
     expect(find.byKey(const Key('question_audio_play')), findsOneWidget);
   });
@@ -349,7 +351,7 @@ void main() {
     expect(find.byKey(const Key('interview_submit_button')), findsOneWidget);
   });
 
-  testWidgets('the second question is requested only when it is shown',
+  testWidgets('the next question is prefetched and requested again when shown',
       (tester) async {
     await start(const [
       InterviewQuestion(id: 'q-1', questionText: 'Tell me about yourself.'),
@@ -357,7 +359,8 @@ void main() {
     ]);
     await pump(tester);
     await tester.pumpAndSettle();
-    expect(api.calls, ['q-1']);
+    expect(api.calls, ['q-1', 'q-2']);
+    expect(api.prefetches, ['q-2']);
 
     await tester.enterText(
       find.byKey(const Key('interview_answer_input')),
@@ -370,7 +373,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('How do you handle feedback?'), findsOneWidget);
-    expect(api.calls, ['q-1', 'q-2']);
+    expect(api.calls, ['q-1', 'q-2', 'q-2']);
   });
 
   testWidgets('a rejected session is not shown as missing audio',

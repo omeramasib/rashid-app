@@ -348,5 +348,6 @@
     "question_audio_resume": "استئناف السؤال",
     "question_audio_replay": "إعادة تشغيل السؤال",
     "question_audio_retry": "إعادة محاولة الصوت",
-    "question_audio_unavailable": "الصوت غير متاح"
+    "question_audio_unavailable": "الصوت غير متاح",
+    "question_audio_limited": "الصوت محدود الآن. يمكنك المحاولة مرة أخرى بعد انتهاء الحد."
 }
