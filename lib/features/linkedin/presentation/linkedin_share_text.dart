@@ -17,6 +17,15 @@ String linkedInShareNoticeText(
     LinkedInShareNotice.invalidState => 'linkedin_invalid_state',
     LinkedInShareNotice.missingPermission => 'linkedin_permission_required',
     LinkedInShareNotice.accountConflict => 'linkedin_account_conflict',
+    LinkedInShareNotice.alreadySharedDifferent =>
+      'linkedin_already_shared_different',
+    LinkedInShareNotice.confirmationRequired =>
+      'linkedin_confirmation_required',
+    LinkedInShareNotice.shareNotFound => 'linkedin_share_not_found',
+    LinkedInShareNotice.shareNotDeletable => 'linkedin_share_not_deletable',
+    LinkedInShareNotice.otherActivePosts => 'linkedin_other_active_posts',
+    LinkedInShareNotice.readyToRepublish => 'linkedin_ready_to_republish',
+    LinkedInShareNotice.network => 'linkedin_network_error',
     LinkedInShareNotice.generic => 'linkedin_generic_error',
   };
   if (key.isEmpty) return '';

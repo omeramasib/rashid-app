@@ -8,6 +8,9 @@ class LinkedInSharePreviewModel extends LinkedInSharePreview {
     required super.text,
     required super.contentSha256,
     super.expiresAt,
+    super.existingPostUrl,
+    super.existingContentMatches,
+    super.existingShareId,
   });
 
   factory LinkedInSharePreviewModel.fromJson(Map<String, dynamic> json) {
@@ -20,6 +23,11 @@ class LinkedInSharePreviewModel extends LinkedInSharePreview {
       contentSha256:
           LinkedInJson.requiredText(body['content_sha256'], 'content_sha256'),
       expiresAt: LinkedInJson.date(body['expires_at']),
+      existingPostUrl: LinkedInJson.text(body['existing_post_url']),
+      existingContentMatches: body['existing_content_matches'] is bool
+          ? body['existing_content_matches'] as bool
+          : null,
+      existingShareId: LinkedInJson.text(body['existing_share_id']),
     );
   }
 }

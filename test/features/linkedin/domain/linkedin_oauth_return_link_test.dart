@@ -72,16 +72,45 @@ void main() {
     );
   });
 
-  test('only a returned linkedin post url can be opened', () {
+  test('only a share or ugcPost permalink can be opened', () {
     expect(verifiedLinkedInPostUrl(null), isNull);
     expect(verifiedLinkedInPostUrl(''), isNull);
+    expect(verifiedLinkedInPostUrl('https://evil.example/post'), isNull);
+    expect(verifiedLinkedInPostUrl('https://www.linkedin.com/'), isNull);
+    expect(verifiedLinkedInPostUrl('https://www.linkedin.com/feed'), isNull);
     expect(
-      verifiedLinkedInPostUrl('https://evil.example/post'),
+      verifiedLinkedInPostUrl('https://www.linkedin.com/feed/update/1'),
       isNull,
     );
     expect(
-      verifiedLinkedInPostUrl('https://www.linkedin.com/feed/update/1'),
-      'https://www.linkedin.com/feed/update/1',
+      verifiedLinkedInPostUrl(
+        'https://www.linkedin.com/feed/update/urn:li:activity:9/',
+      ),
+      isNull,
+    );
+    expect(
+      verifiedLinkedInPostUrl(
+        'https://user@www.linkedin.com/feed/update/urn:li:share:9/',
+      ),
+      isNull,
+    );
+    expect(
+      verifiedLinkedInPostUrl(
+        'https://www.linkedin.com/feed/update/urn:li:share:9/',
+      ),
+      'https://www.linkedin.com/feed/update/urn:li:share:9/',
+    );
+    expect(
+      verifiedLinkedInPostUrl(
+        'https://www.linkedin.com/feed/update/urn:li:ugcPost:44',
+      ),
+      'https://www.linkedin.com/feed/update/urn:li:ugcPost:44',
+    );
+    expect(
+      verifiedLinkedInPostUrl(
+        'https://www.linkedin.com/feed/update/urn%3Ali%3Ashare%3A9/',
+      ),
+      'https://www.linkedin.com/feed/update/urn%3Ali%3Ashare%3A9/',
     );
   });
 }

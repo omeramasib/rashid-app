@@ -12,6 +12,7 @@ import 'package:rashed_app/features/linkedin/domain/entities/linkedin_share_prev
 import 'package:rashed_app/features/linkedin/domain/linkedin_app_return_url.dart';
 import 'package:rashed_app/features/linkedin/domain/usecases/disconnect_linkedin_usecase.dart';
 import 'package:rashed_app/features/linkedin/domain/usecases/get_linkedin_status_usecase.dart';
+import 'package:rashed_app/features/linkedin/domain/usecases/mark_linkedin_share_deleted_usecase.dart';
 import 'package:rashed_app/features/linkedin/domain/usecases/preview_linkedin_share_usecase.dart';
 import 'package:rashed_app/features/linkedin/domain/usecases/publish_linkedin_share_usecase.dart';
 import 'package:rashed_app/features/linkedin/domain/usecases/start_linkedin_oauth_usecase.dart';
@@ -26,6 +27,8 @@ class MockStart extends Mock implements StartLinkedInOAuthUseCase {}
 class MockPreview extends Mock implements PreviewLinkedInShareUseCase {}
 
 class MockPublish extends Mock implements PublishLinkedInShareUseCase {}
+
+class MockMarkDeleted extends Mock implements MarkLinkedInShareDeletedUseCase {}
 
 class MockDisconnect extends Mock implements DisconnectLinkedInUseCase {}
 
@@ -100,6 +103,7 @@ void main() {
       startOAuth: MockStart(),
       previewShare: previewShare,
       publishShare: publish,
+      markDeleted: MockMarkDeleted(),
       disconnectLinkedIn: MockDisconnect(),
       pendingShare: pending,
       launcher: _ClosedLauncher(),

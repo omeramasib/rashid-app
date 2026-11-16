@@ -10,6 +10,7 @@ import '../../domain/linkedin_oauth_return_link.dart';
 import '../../domain/linkedin_urls.dart';
 import '../../domain/usecases/disconnect_linkedin_usecase.dart';
 import '../../domain/usecases/get_linkedin_status_usecase.dart';
+import '../../domain/usecases/mark_linkedin_share_deleted_usecase.dart';
 import '../../domain/usecases/preview_linkedin_share_usecase.dart';
 import '../../domain/usecases/publish_linkedin_share_usecase.dart';
 import '../../domain/usecases/start_linkedin_oauth_usecase.dart';
@@ -35,6 +36,7 @@ class LinkedInShareCubit extends Cubit<LinkedInShareState> {
   final StartLinkedInOAuthUseCase startOAuth;
   final PreviewLinkedInShareUseCase previewShare;
   final PublishLinkedInShareUseCase publishShare;
+  final MarkLinkedInShareDeletedUseCase markDeleted;
   final DisconnectLinkedInUseCase disconnectLinkedIn;
   final LinkedInPendingShareStore pendingShare;
   final LinkedInAuthorizationLauncher launcher;
@@ -47,6 +49,7 @@ class LinkedInShareCubit extends Cubit<LinkedInShareState> {
     required this.startOAuth,
     required this.previewShare,
     required this.publishShare,
+    required this.markDeleted,
     required this.disconnectLinkedIn,
     required this.pendingShare,
     required this.launcher,
@@ -235,19 +238,90 @@ class LinkedInShareCubit extends Cubit<LinkedInShareState> {
     ));
     if (isClosed) return;
     result.fold(
-      (failure) => _emitFailure(failure, simulationId: simulationId),
+      (failure) {
+        if (failure is ConflictFailure &&
+            failure.code == linkedInDifferentContentCode) {
+          _busy = false;
+          emit(LinkedInShareState(
+            phase: LinkedInSharePhase.alreadyShared,
+            simulationId: simulationId,
+            resultLabel: state.resultLabel,
+            connection: state.connection,
+            preview: preview,
+            postUrl: verifiedLinkedInPostUrl(failure.postUrl),
+            activeShareId: failure.shareId,
+            notice: LinkedInShareNotice.alreadySharedDifferent,
+            returnGeneration: state.returnGeneration,
+          ));
+          return;
+        }
+        _emitFailure(failure, simulationId: simulationId);
+      },
       (published) {
         _busy = false;
+        final postUrl = _postUrl(published);
+        if (published.alreadyPublished) {
+          emit(LinkedInShareState(
+            phase: LinkedInSharePhase.alreadyShared,
+            simulationId: simulationId,
+            resultLabel: state.resultLabel,
+            connection: state.connection,
+            preview: preview,
+            postUrl: postUrl,
+            activeShareId: published.shareId,
+            returnGeneration: state.returnGeneration,
+          ));
+          return;
+        }
         emit(LinkedInShareState(
           phase: LinkedInSharePhase.published,
           simulationId: simulationId,
           resultLabel: state.resultLabel,
           connection: state.connection,
           preview: preview,
-          postUrl: _postUrl(published),
+          postUrl: postUrl,
           returnGeneration: state.returnGeneration,
         ));
       },
+    );
+  }
+
+  Future<void> markDeletedOnLinkedIn() async {
+    if (_busy || state.phase != LinkedInSharePhase.alreadyShared) return;
+    final shareId = state.activeShareId;
+    final simulationId = state.simulationId;
+    if (shareId == null || shareId.isEmpty || simulationId == null) return;
+    _busy = true;
+    final connection = state.connection;
+    final resultLabel = state.resultLabel;
+    final generation = state.returnGeneration;
+    emit(LinkedInShareState(
+      phase: LinkedInSharePhase.markingDeleted,
+      simulationId: simulationId,
+      resultLabel: resultLabel,
+      connection: connection,
+      returnGeneration: generation,
+    ));
+    final result = await markDeleted(
+      MarkLinkedInShareDeletedParams(shareId: shareId),
+    );
+    if (isClosed) return;
+    await result.fold<Future<void>>(
+      (failure) async {
+        _emitMarkDeletedFailure(
+          failure,
+          simulationId: simulationId,
+        );
+      },
+      (deleted) => _loadPreview(
+        simulationId,
+        connection: connection,
+        returnGeneration: generation,
+        blockRepublish: !deleted.allowsFreshPreview,
+        readyNotice: deleted.allowsFreshPreview
+            ? LinkedInShareNotice.readyToRepublish
+            : LinkedInShareNotice.none,
+      ),
     );
   }
 
@@ -284,6 +358,8 @@ class LinkedInShareCubit extends Cubit<LinkedInShareState> {
     String simulationId, {
     LinkedInConnectionStatus? connection,
     int? returnGeneration,
+    bool blockRepublish = false,
+    LinkedInShareNotice readyNotice = LinkedInShareNotice.none,
   }) async {
     emit(LinkedInShareState(
       phase: LinkedInSharePhase.loadingPreview,
@@ -304,16 +380,62 @@ class LinkedInShareCubit extends Cubit<LinkedInShareState> {
       ),
       (value) {
         _busy = false;
+        final generation = returnGeneration ?? state.returnGeneration;
+        final currentConnection = connection ?? state.connection;
+        if (blockRepublish && value.existingContentMatches == null) {
+          emit(LinkedInShareState(
+            phase: LinkedInSharePhase.alreadyShared,
+            simulationId: simulationId,
+            resultLabel: state.resultLabel,
+            connection: currentConnection,
+            notice: LinkedInShareNotice.otherActivePosts,
+            republishBlocked: true,
+            returnGeneration: generation,
+          ));
+          return;
+        }
+        if (value.existingContentMatches != null) {
+          emit(LinkedInShareState(
+            phase: LinkedInSharePhase.alreadyShared,
+            simulationId: simulationId,
+            resultLabel: state.resultLabel,
+            connection: currentConnection,
+            preview: value,
+            postUrl: verifiedLinkedInPostUrl(value.existingPostUrl),
+            activeShareId: value.existingShareId,
+            republishBlocked: blockRepublish,
+            notice: value.existingContentMatches == false
+                ? LinkedInShareNotice.alreadySharedDifferent
+                : LinkedInShareNotice.none,
+            returnGeneration: generation,
+          ));
+          return;
+        }
         emit(LinkedInShareState(
           phase: LinkedInSharePhase.previewReady,
           simulationId: simulationId,
           resultLabel: state.resultLabel,
-          connection: connection ?? state.connection,
+          connection: currentConnection,
           preview: value,
-          returnGeneration: returnGeneration ?? state.returnGeneration,
+          notice: readyNotice,
+          returnGeneration: generation,
         ));
       },
     );
+  }
+
+  void _emitMarkDeletedFailure(
+    Failure failure, {
+    required String simulationId,
+  }) {
+    _busy = false;
+    emit(_error(
+      _markDeletedNotice(failure),
+      simulationId: simulationId,
+      resultLabel: state.resultLabel,
+      connection: state.connection,
+      returnGeneration: state.returnGeneration,
+    ));
   }
 
   void _emitFailure(
@@ -357,11 +479,34 @@ LinkedInShareNotice _noticeFor(Failure failure) {
   if (failure is UnauthorizedFailure) return LinkedInShareNotice.sessionExpired;
   if (failure is ForbiddenFailure) return LinkedInShareNotice.reconnect;
   if (failure is NotFoundFailure) return LinkedInShareNotice.notFound;
-  if (failure is ConflictFailure) return LinkedInShareNotice.previewExpired;
+  if (failure is ConflictFailure) {
+    if (failure.code == linkedInDifferentContentCode) {
+      return LinkedInShareNotice.alreadySharedDifferent;
+    }
+    if (failure.code == linkedInShareNotDeletableCode) {
+      return LinkedInShareNotice.shareNotDeletable;
+    }
+    return LinkedInShareNotice.previewExpired;
+  }
+  if (failure is NetworkFailure) return LinkedInShareNotice.network;
   if (failure is UpstreamFailure) return LinkedInShareNotice.publishUnconfirmed;
   if (failure is ServiceUnavailableFailure || failure is GoneFailure) {
     return LinkedInShareNotice.unavailable;
   }
+  return LinkedInShareNotice.generic;
+}
+
+LinkedInShareNotice _markDeletedNotice(Failure failure) {
+  if (failure is UnauthorizedFailure) return LinkedInShareNotice.sessionExpired;
+  if (failure is ValidationFailure) {
+    return LinkedInShareNotice.confirmationRequired;
+  }
+  if (failure is NotFoundFailure) return LinkedInShareNotice.shareNotFound;
+  if (failure is ConflictFailure &&
+      failure.code == linkedInShareNotDeletableCode) {
+    return LinkedInShareNotice.shareNotDeletable;
+  }
+  if (failure is NetworkFailure) return LinkedInShareNotice.network;
   return LinkedInShareNotice.generic;
 }
 

@@ -46,8 +46,8 @@ class ResponseInterceptor extends Interceptor {
     final response = err.response;
     final code = response?.statusCode;
     final body = response?.data;
-
-    final message = _extractMessage(body) ?? err.message ?? 'Unknown error';
+    final parsed = _apiError(body, err.message ?? 'Unknown error');
+    final message = parsed.message;
 
     switch (code) {
       case 400:
@@ -59,7 +59,15 @@ class ResponseInterceptor extends Interceptor {
       case 404:
         handler.reject(_reject(err, NotFoundException(message)));
       case 409:
-        handler.reject(_reject(err, ConflictException(message)));
+        handler.reject(_reject(
+          err,
+          ConflictException(
+            message,
+            code: parsed.code,
+            postUrl: parsed.postUrl,
+            shareId: parsed.shareId,
+          ),
+        ));
       case 410:
         handler.reject(_reject(err, GoneException(message)));
       case 413:
@@ -90,18 +98,30 @@ class ResponseInterceptor extends Interceptor {
   }
 
   // ── HELPERS ──────────────────────────────────────────────────────────────────
-  String? _extractMessage(dynamic body) {
-    if (body is Map<String, dynamic>) {
+  _ApiError _apiError(dynamic body, String fallback) {
+    if (body is Map) {
       final raw = body['detail'] ?? body['message'] ?? body['error'];
-      if (raw is String) return raw;
+      if (raw is Map) {
+        final code = raw['code'] is String ? raw['code'] as String : null;
+        final postUrl =
+            raw['post_url'] is String ? raw['post_url'] as String : null;
+        final shareId =
+            raw['share_id'] is String ? raw['share_id'] as String : null;
+        final message = raw['message'] is String
+            ? raw['message'] as String
+            : (code ?? fallback);
+        return _ApiError(message,
+            code: code, postUrl: postUrl, shareId: shareId);
+      }
+      if (raw is String) return _ApiError(raw);
       if (raw is List && raw.isNotEmpty) {
         final first = raw.first;
         if (first is Map && first['msg'] is String) {
-          return first['msg'] as String;
+          return _ApiError(first['msg'] as String);
         }
       }
     }
-    return null;
+    return _ApiError(fallback);
   }
 
   DioException _reject(DioException original, Exception error) => DioException(
@@ -110,4 +130,13 @@ class ResponseInterceptor extends Interceptor {
         type: original.type,
         error: error,
       );
+}
+
+class _ApiError {
+  final String message;
+  final String? code;
+  final String? postUrl;
+  final String? shareId;
+
+  const _ApiError(this.message, {this.code, this.postUrl, this.shareId});
 }

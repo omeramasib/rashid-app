@@ -6,6 +6,9 @@ class LinkedInSharePreview extends Equatable {
   final String text;
   final String contentSha256;
   final DateTime? expiresAt;
+  final String? existingPostUrl;
+  final bool? existingContentMatches;
+  final String? existingShareId;
 
   const LinkedInSharePreview({
     required this.previewId,
@@ -13,6 +16,9 @@ class LinkedInSharePreview extends Equatable {
     required this.text,
     required this.contentSha256,
     this.expiresAt,
+    this.existingPostUrl,
+    this.existingContentMatches,
+    this.existingShareId,
   });
 
   @override
@@ -22,5 +28,8 @@ class LinkedInSharePreview extends Equatable {
         text,
         contentSha256,
         expiresAt,
+        existingPostUrl,
+        existingContentMatches,
+        existingShareId,
       ];
 }
