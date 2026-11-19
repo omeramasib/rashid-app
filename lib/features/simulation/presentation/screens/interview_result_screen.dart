@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../../../Presentation/utils/images.dart';
 import '../../../../app/routes_name.dart';
 import '../../../../app_localizations.dart';
 import '../../../../core/localization/app_text_direction.dart';
@@ -13,6 +11,7 @@ import '../../domain/entities/interview_report.dart';
 import '../cubit/interview_cubit.dart';
 import '../interview_error_text.dart';
 import '../widgets/interview_widgets.dart';
+import '../widgets/rashed_mascot.dart';
 
 class InterviewResultScreen extends StatelessWidget {
   const InterviewResultScreen({super.key});
@@ -27,6 +26,7 @@ class InterviewResultScreen extends StatelessWidget {
           child: BlocBuilder<InterviewCubit, InterviewState>(
             builder: (context, state) {
               final result = state.finishResult;
+              final outcome = interviewResultMascot(result?.performanceStatus);
               return ListView(
                 padding: const EdgeInsets.all(14),
                 children: [
@@ -35,6 +35,14 @@ class InterviewResultScreen extends StatelessWidget {
                     total: result?.totalQuestions ?? state.questions.length,
                   ),
                   const SizedBox(height: 16),
+                  InterviewResultMascot(
+                    appearance: outcome,
+                    message: AppLocalizations.tr(
+                      context,
+                      outcome.messageKey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   if (result != null)
                     _summary(context, result)
                   else if (!state.reportLoading && state.reportFailure == null)
@@ -87,11 +95,6 @@ class InterviewResultScreen extends StatelessWidget {
     final band = performanceBandLabel(context, result.performanceStatus);
     return Column(
       children: [
-        SizedBox(
-          width: 120,
-          height: 120,
-          child: SvgPicture.asset(ImageManages.rashedImage),
-        ),
         if (band != null && band.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(

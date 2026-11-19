@@ -142,6 +142,7 @@ void main() {
     await pumpApp(tester, app());
     await tester.enterText(
         find.byType(TextFormField).first, 'prefilled@example.com');
+    await tester.ensureVisible(find.text('Forgot password ?'));
     await tester.tap(find.text('Forgot password ?'));
     await tester.pumpAndSettle();
     expect(find.byType(ForgotPasswordScreen), findsOneWidget);
@@ -231,6 +232,7 @@ void main() {
     await tester.enterText(
         find.byType(TextFormField).first, 'test@example.com');
     await tester.enterText(find.byType(TextFormField).last, 'password123');
+    await tester.ensureVisible(find.text('Login').last);
     await tester.tap(find.text('Login').last);
     await tester.pump();
     verify(() => login.loginWithEmail(

@@ -9,6 +9,7 @@ class AppColors {
   static const Color primaryAccent = Color(0xFF2FAAEC);
   static const Color secondary = Color(0xFF00FFF0);
   static const Color primarySet2 = Color(0xFF396AFC);
+  static const Color navyTitle = Color(0xFF09155A);
 
   // Black scale
   static const Color black100 = Color(0xFF141F1F);

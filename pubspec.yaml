@@ -64,6 +64,7 @@ flutter:
   assets:
     - assets/images/png/
     - assets/images/svg/
+    - assets/images/webp/
     - assets/lang/en.json
     - assets/lang/ar.json
 
