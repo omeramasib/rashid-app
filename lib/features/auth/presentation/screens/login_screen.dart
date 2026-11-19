@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:rashed_app/Presentation/utils/custom_snackbars.dart';
+import 'package:rashed_app/Presentation/utils/validations.dart';
 import 'package:rashed_app/app/routes_name.dart';
-import '../../../../Presentation/utils/buttons.dart';
-import '../../../../Presentation/utils/colors.dart';
-import '../../../../Presentation/utils/custom_snackbars.dart';
-import '../../../../Presentation/utils/images.dart';
-import '../../../../Presentation/utils/styles.dart';
-import '../../../../Presentation/utils/fonts.dart';
-import '../../../../Presentation/utils/validations.dart';
-import '../../../../app_localizations.dart';
+import 'package:rashed_app/app_localizations.dart';
+import 'package:rashed_app/core/localization/app_text_direction.dart';
+import 'package:rashed_app/core/theme/theme.dart';
+
 import '../cubit/login/login_cubit.dart';
 import '../linkedin_email_conflict_notice.dart';
+import '../widgets/auth_form_widgets.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,252 +32,168 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  /// Build LinkedIn sign-in button with LinkedIn branding
-  Widget _buildLinkedInButton({
-    required BuildContext context,
-    required String text,
-    required VoidCallback onPressed,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0A66C2), // LinkedIn blue
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // LinkedIn icon
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Center(
-                child: Text(
-                  'in',
-                  style: TextStyle(
-                    color: Color(0xFF0A66C2),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Text(
-                text,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    AppLocalizations localizations = AppLocalizations.of(context)!;
+    final localizations = AppLocalizations.of(context)!;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: BlocConsumer<LoginCubit, LoginState>(
-        listener: (context, state) {
-          if (state is LoginSuccess) {
-            CustomSnackBars.sucssesSnackBar(
-              context: context,
-              message: localizations.translate('login_successfully'),
-            );
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              RoutesName.home,
-              (route) => false,
-            );
-          } else if (state is LoginFailure && !state.offerEmailSignIn) {
-            CustomSnackBars.errorSnackBar(
-              context: context,
-              message: AppLocalizations.message(context, state.message),
-            );
-          }
-        },
-        builder: (context, state) {
-          LoginCubit cubit = context.read<LoginCubit>();
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 100),
-                    Center(
-                      child: SvgPicture.asset(
-                        ImageManages.rashedImage,
-                        height: 130,
-                        width: 130,
+    return Directionality(
+      textDirection: AppTextDirection.of(context),
+      child: Scaffold(
+        backgroundColor: AppColors.white,
+        resizeToAvoidBottomInset: true,
+        body: SafeArea(
+          child: BlocConsumer<LoginCubit, LoginState>(
+            listener: (context, state) {
+              if (state is LoginSuccess) {
+                CustomSnackBars.sucssesSnackBar(
+                  context: context,
+                  message: localizations.translate('login_successfully'),
+                );
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  RoutesName.home,
+                  (route) => false,
+                );
+              } else if (state is LoginFailure && !state.offerEmailSignIn) {
+                CustomSnackBars.errorSnackBar(
+                  context: context,
+                  message: AppLocalizations.message(context, state.message),
+                );
+              }
+            },
+            builder: (context, state) {
+              final cubit = context.read<LoginCubit>();
+              return SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AuthScreenHeader(
+                        title: localizations.translate('login'),
                       ),
-                    ),
-                    const SizedBox(height: 40),
-                    Text(
-                      localizations.translate('login'),
-                      style: getBoldStyle(
-                        color: ColorsManager.fontColor,
-                        fontSize: FontSizeManager.s20,
-                      ),
-                      textAlign: TextAlign.start,
-                    ),
-                    const SizedBox(height: 30),
-                    TextFormField(
-                      controller: _emailController,
-                      focusNode: _emailFocus,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      decoration: InputDecoration(
-                        labelText: localizations.translate('email'),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      validator: (value) =>
-                          Validations.validateEmail(value!, context),
-                    ),
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: !cubit.isPasswordVisible,
-                      decoration: InputDecoration(
-                        labelText: localizations.translate('password'),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            cubit.isPasswordVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                      const AuthWelcomeBanner(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: AuthFormCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              AuthTextField(
+                                controller: _emailController,
+                                focusNode: _emailFocus,
+                                hint: localizations.translate('email'),
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [AutofillHints.email],
+                                validator: (value) =>
+                                    Validations.validateEmail(value!, context),
+                              ),
+                              const SizedBox(height: 16),
+                              AuthTextField(
+                                controller: _passwordController,
+                                hint: localizations.translate('password'),
+                                keyboardType: TextInputType.visiblePassword,
+                                textInputAction: TextInputAction.done,
+                                autofillHints: const [AutofillHints.password],
+                                obscureText: !cubit.isPasswordVisible,
+                                validator: (value) =>
+                                    Validations.validatePassword(
+                                        value!, context),
+                                suffix: AuthPasswordVisibilityButton(
+                                  visible: cubit.isPasswordVisible,
+                                  onPressed: cubit.viewPassword,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: TextButton(
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      RoutesName.forgotPassword,
+                                      arguments: _emailController.text.trim(),
+                                    );
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.primarySet2,
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: const Size(48, 40),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    alignment: AlignmentDirectional.centerStart,
+                                  ),
+                                  child: Text(
+                                    localizations.translate('forgot_password'),
+                                    style: AppTypography.regular(
+                                      fontSize: 14,
+                                      color: AppColors.primarySet2,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+                              if (state is LoginLoading)
+                                const AuthButtonProgress()
+                              else
+                                AuthPrimaryButton(
+                                  text: localizations.translate('login'),
+                                  onPressed: () {
+                                    if (_formKey.currentState!.validate()) {
+                                      cubit.loginWithEmail(
+                                        email: _emailController.text.trim(),
+                                        password: _passwordController.text,
+                                      );
+                                    }
+                                  },
+                                ),
+                              const SizedBox(height: 20),
+                              AuthCreateAccountLink(
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    RoutesName.register,
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 32),
+                              AuthOrDivider(
+                                label: localizations.translate('or'),
+                              ),
+                              const SizedBox(height: 16),
+                              if (state is LoginLinkedInLoading)
+                                const AuthButtonProgress()
+                              else
+                                AuthLinkedInButton(
+                                  label: localizations
+                                      .translate('linkedin_import_button'),
+                                  onPressed: () =>
+                                      cubit.loginWithLinkedIn(context),
+                                ),
+                              if (state is LoginFailure &&
+                                  state.offerEmailSignIn) ...[
+                                const SizedBox(height: 12),
+                                LinkedInEmailConflictNotice(
+                                  onSignInWithEmail: () =>
+                                      _emailFocus.requestFocus(),
+                                ),
+                              ],
+                            ],
                           ),
-                          onPressed: () {
-                            cubit.viewPassword();
-                          },
                         ),
-                      ),
-                      validator: (value) =>
-                          Validations.validatePassword(value!, context),
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(
-                            context,
-                            RoutesName.forgotPassword,
-                            arguments: _emailController.text.trim(),
-                          );
-                        },
-                        child: Text(
-                          localizations.translate('forgot_password'),
-                          style:
-                              const TextStyle(color: ColorsManager.mainColor),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    state is LoginLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : ButtonsManager.primaryButton(
-                            text: localizations.translate('login'),
-                            context: context,
-                            onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                cubit.loginWithEmail(
-                                  email: _emailController.text.trim(),
-                                  password: _passwordController.text,
-                                );
-                              }
-                            },
-                          ),
-                    const SizedBox(height: 20),
-                    // Divider with "OR" text
-                    Row(
-                      children: [
-                        const Expanded(child: Divider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            localizations.translate('or'),
-                            style: const TextStyle(
-                              color: ColorsManager.defaultGreyColor,
-                            ),
-                          ),
-                        ),
-                        const Expanded(child: Divider()),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    // LinkedIn Login Button
-                    state is LoginLinkedInLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : _buildLinkedInButton(
-                            context: context,
-                            text:
-                                localizations.translate('login_with_linkedin'),
-                            onPressed: () {
-                              print(
-                                  'DEBUG: LoginScreen - Login with LinkedIn clicked');
-                              cubit.loginWithLinkedIn(context);
-                            },
-                          ),
-                    if (state is LoginFailure && state.offerEmailSignIn) ...[
-                      const SizedBox(height: 12),
-                      LinkedInEmailConflictNotice(
-                        onSignInWithEmail: () => _emailFocus.requestFocus(),
                       ),
                     ],
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            localizations.translate('do_not_have_account'),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, RoutesName.register);
-                          },
-                          child: Text(
-                            localizations.translate('register'),
-                            style:
-                                const TextStyle(color: ColorsManager.mainColor),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
     );
   }

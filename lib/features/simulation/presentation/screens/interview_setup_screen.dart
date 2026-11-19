@@ -10,6 +10,7 @@ import '../../domain/interview_options.dart';
 import '../cubit/interview_cubit.dart';
 import '../interview_error_text.dart';
 import '../widgets/interview_widgets.dart';
+import '../widgets/rashed_mascot.dart';
 
 class InterviewSetupScreen extends HookWidget {
   const InterviewSetupScreen({super.key, required this.initialMode});
@@ -80,6 +81,12 @@ class InterviewSetupScreen extends HookWidget {
                 input.length >= minLength && input.length <= maxLength;
             final showInvalid = input.isNotEmpty && !valid;
             final starting = state.phase == InterviewPhase.starting;
+            final mascot = interviewMascotAppearance(
+              phase: state.phase,
+              hasError: state.error != null,
+              recording: false,
+              answering: false,
+            );
             final showEmptyTitles = byJob &&
                 !useCvTitle &&
                 state.cvChecked &&
@@ -100,6 +107,17 @@ class InterviewSetupScreen extends HookWidget {
                       child: ListView(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
+                          RashedMascot(
+                            key: const Key('interview_setup_mascot'),
+                            pose: mascot.pose,
+                            motion: mascot.motion,
+                            size: 88,
+                            message: AppLocalizations.tr(
+                              context,
+                              mascot.messageKey,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           InterviewChoiceGroup(
                             label: AppLocalizations.tr(
                               context,
