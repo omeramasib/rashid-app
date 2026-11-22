@@ -70,6 +70,15 @@ class LoadedLocalizationsDelegate
   bool shouldReload(LoadedLocalizationsDelegate old) => false;
 }
 
+/// Cubit playback events are delivered on the real event queue. Yield so the
+/// question control can rebuild, then draw that frame.
+Future<void> _flushPlayback(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    await Future<void>.delayed(Duration.zero);
+  });
+  await tester.pump();
+}
+
 void main() {
   final loaded = <String, AppLocalizations>{};
   const evaluation = AnswerEvaluation(
@@ -240,21 +249,24 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('question_audio_play')));
-    await tester.pump();
+    await _flushPlayback(tester);
     expect(audio.state.playback, QuestionPlaybackStatus.playing);
     expect(
-      tester.widget<QuestionAudioControl>(find.byType(QuestionAudioControl)).state.playback,
+      tester
+          .widget<QuestionAudioControl>(find.byType(QuestionAudioControl))
+          .state
+          .playback,
       QuestionPlaybackStatus.playing,
     );
 
     await tester.tap(find.byKey(const Key('question_audio_pause')));
-    await tester.pumpAndSettle();
+    await _flushPlayback(tester);
     expect(find.byKey(const Key('question_audio_resume')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('question_audio_resume')));
-    await tester.pumpAndSettle();
+    await _flushPlayback(tester);
     player.emit(QuestionAudioPlayerSignal.completed);
-    await tester.pump();
+    await _flushPlayback(tester);
     expect(find.byKey(const Key('question_audio_replay')), findsOneWidget);
   });
 
@@ -343,7 +355,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('speech_mic_button')));
-    await tester.pumpAndSettle();
+    // Listening pulses forever, so a settle wait never finishes.
+    for (var i = 0; i < 8 && !speech.state.status.isActive; i++) {
+      await tester.pump();
+    }
+    await tester.pump();
 
     expect(player.suspendCalls, greaterThan(0));
     expect(audio.state.playback, QuestionPlaybackStatus.paused);

@@ -18,6 +18,7 @@ import '../widgets/interview_widgets.dart';
 import '../widgets/question_audio_control.dart';
 import '../widgets/speech_input_button.dart';
 import '../widgets/speech_input_message.dart';
+import '../widgets/rashed_mascot.dart';
 import '../widgets/speech_listening_indicator.dart';
 
 class InterviewQuestionScreen extends HookWidget {
@@ -26,6 +27,7 @@ class InterviewQuestionScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final controller = useTextEditingController();
+    final answerFocus = useFocusNode();
     final state = context.watch<InterviewCubit>().state;
     final speechCubit = context.read<SpeechInputCubit>();
     final audioCubit = context.read<QuestionAudioCubit>();
@@ -56,7 +58,6 @@ class InterviewQuestionScreen extends HookWidget {
       );
       return null;
     }, [question?.id, deferAudio, next?.id]);
-    useListenable(controller);
 
     return Directionality(
       textDirection: AppTextDirection.of(context),
@@ -128,7 +129,9 @@ class InterviewQuestionScreen extends HookWidget {
                         ),
                         onBack: () => _confirmFinish(context),
                       ),
-                      Expanded(child: _body(context, state, controller)),
+                      Expanded(
+                        child: _body(context, state, controller, answerFocus),
+                      ),
                     ],
                   ),
                 ),
@@ -144,6 +147,7 @@ class InterviewQuestionScreen extends HookWidget {
     BuildContext context,
     InterviewState state,
     TextEditingController controller,
+    FocusNode answerFocus,
   ) {
     final question = state.currentQuestion;
     if (question == null) {
@@ -163,12 +167,9 @@ class InterviewQuestionScreen extends HookWidget {
     final speechCubit = context.read<SpeechInputCubit>();
     final speech = context.watch<SpeechInputCubit>().state;
     final recording = speech.status.isActive;
-    final canSubmit = controller.text.trim().isNotEmpty &&
-        !submitting &&
-        !readOnly &&
-        !recording;
     final showSpeech = !readOnly && !submitting;
     final routeCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       children: [
@@ -176,7 +177,16 @@ class InterviewQuestionScreen extends HookWidget {
           current: state.currentIndex + 1,
           total: state.questions.length,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
+        InterviewQuestionMascot(
+          controller: controller,
+          focusNode: answerFocus,
+          phase: state.phase,
+          hasError: state.error != null,
+          recording: recording,
+          compact: keyboardOpen,
+        ),
+        const SizedBox(height: 12),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(14),
@@ -226,6 +236,7 @@ class InterviewQuestionScreen extends HookWidget {
         TextField(
           key: const Key('interview_answer_input'),
           controller: controller,
+          focusNode: answerFocus,
           enabled: !readOnly && !submitting,
           readOnly: readOnly,
           maxLines: 7,
@@ -309,41 +320,68 @@ class InterviewQuestionScreen extends HookWidget {
             ],
           )
         else
-          Row(
-            children: [
-              Expanded(
-                child: InterviewActionButton(
-                  key: const Key('interview_skip_button'),
-                  label: AppLocalizations.tr(context, 'interview_skip'),
-                  primary: false,
-                  busy: submitting,
-                  onPressed: submitting
-                      ? null
-                      : () {
-                          unawaited(speechCubit.cancel());
-                          context.read<InterviewCubit>().skip();
-                        },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: InterviewActionButton(
-                  key: const Key('interview_submit_button'),
-                  label: AppLocalizations.tr(
-                    context,
-                    submitting ? 'interview_submitting' : 'interview_submit',
-                  ),
-                  busy: submitting,
-                  onPressed: canSubmit
-                      ? () =>
-                          context.read<InterviewCubit>().submit(controller.text)
-                      : null,
-                ),
-              ),
-            ],
+          _SubmitActions(
+            controller: controller,
+            submitting: submitting,
+            recording: recording,
+            onSkip: () {
+              unawaited(speechCubit.cancel());
+              context.read<InterviewCubit>().skip();
+            },
+            onSubmit: (text) => context.read<InterviewCubit>().submit(text),
           ),
         const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+class _SubmitActions extends HookWidget {
+  const _SubmitActions({
+    required this.controller,
+    required this.submitting,
+    required this.recording,
+    required this.onSkip,
+    required this.onSubmit,
+  });
+
+  final TextEditingController controller;
+  final bool submitting;
+  final bool recording;
+  final VoidCallback onSkip;
+  final ValueChanged<String> onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasText = useListenableSelector(
+      controller,
+      () => controller.text.trim().isNotEmpty,
+    );
+    final canSubmit = hasText && !submitting && !recording;
+    return Row(
+      children: [
+        Expanded(
+          child: InterviewActionButton(
+            key: const Key('interview_skip_button'),
+            label: AppLocalizations.tr(context, 'interview_skip'),
+            primary: false,
+            busy: submitting,
+            onPressed: submitting ? null : onSkip,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 2,
+          child: InterviewActionButton(
+            key: const Key('interview_submit_button'),
+            label: AppLocalizations.tr(
+              context,
+              submitting ? 'interview_submitting' : 'interview_submit',
+            ),
+            busy: submitting,
+            onPressed: canSubmit ? () => onSubmit(controller.text) : null,
+          ),
+        ),
       ],
     );
   }

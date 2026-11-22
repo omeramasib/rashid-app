@@ -121,8 +121,8 @@ void main() {
     );
 
     await pumpLogin(tester);
-    await tester.ensureVisible(find.text('Login with your LinkedIn account'));
-    await tester.tap(find.text('Login with your LinkedIn account'));
+    await tester.ensureVisible(find.text('Sign up with LinkedIn'));
+    await tester.tap(find.text('Sign up with LinkedIn'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('sign_in_with_email')), findsOneWidget);
@@ -165,8 +165,8 @@ void main() {
 
     await pumpLogin(tester);
     expect(find.text('home-route'), findsNothing);
-    await tester.ensureVisible(find.text('Login with your LinkedIn account'));
-    await tester.tap(find.text('Login with your LinkedIn account'));
+    await tester.ensureVisible(find.text('Sign up with LinkedIn'));
+    await tester.tap(find.text('Sign up with LinkedIn'));
     await tester.pump();
     await tester.pump();
     expect(stored, isTrue);
