@@ -32,7 +32,7 @@ class InterviewTopBar extends StatelessWidget {
                 height: 40,
                 child: Icon(
                   key: const Key('interview_back_icon'),
-                   Icons.chevron_left,
+                  rtl ? Icons.chevron_right : Icons.chevron_left,
                   size: 30,
                   color: AppColors.black100,
                 ),

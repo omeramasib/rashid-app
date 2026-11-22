@@ -31,6 +31,7 @@ void main() {
     final gate = Completer<void>();
     session.activateGate = gate;
 
+    var current = true;
     final playing = player.play(stillCurrent: () => current);
     await Future<void>.delayed(Duration.zero);
     current = false;

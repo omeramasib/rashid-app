@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../error/exceptions.dart';
 
 /// Unwraps the standard envelope { "status": "success", "message": "...", "data": {} }
@@ -47,6 +48,8 @@ class ResponseInterceptor extends Interceptor {
     }
 
     final response = err.response;
+    debugPrint('Status Code: ${err.response?.statusCode}');
+    debugPrint('Error Body: ${err.response?.data}');
     final code = response?.statusCode;
     final parsed = _apiError(response?.data, err.message ?? 'Unknown error');
     final message = parsed.message;

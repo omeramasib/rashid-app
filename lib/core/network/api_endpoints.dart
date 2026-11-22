@@ -1,7 +1,7 @@
 class ApiEndpoints {
-  static const String deployedBaseUrl = 'https://rashed-backend.vercel.app';
+  //static const String deployedBaseUrl = 'https://rashed-backend.vercel.app';
   //static const String deployedBaseUrl = 'http://192.168.8.9:8000';
-  //static const String deployedBaseUrl = 'http://10.0.2.2:8000';
+  static const String deployedBaseUrl = 'http://10.0.2.2:8000';
   static String get baseUrl {
     const configuredUrl = String.fromEnvironment('API_BASE_URL');
     if (configuredUrl.isNotEmpty) return configuredUrl;
